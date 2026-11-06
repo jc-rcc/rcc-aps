@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 22, 2026 at 08:07 AM
+-- Generation Time: Nov 06, 2026 at 04:37 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -41,16 +41,16 @@ INSERT INTO `app_config` (`cfg_key`, `cfg_value`) VALUES
 ('dedMeta', '{}'),
 ('hoursPerWorkload', '3'),
 ('nextBonusId', '6'),
-('nextDedCatId', '1'),
+('nextDedCatId', '2'),
 ('nextLeaveRecordId', '11'),
 ('nextLeaveTypeId', '6'),
 ('nextRankId', '55'),
 ('nextTeachingLoadClassId', '19'),
 ('nextTeachingLoadId', '12'),
 ('nextUserId', '10'),
-('savedAt', '2026-10-22T05:46:35.394Z'),
+('savedAt', '2026-11-06T03:24:00.984Z'),
 ('schemaVersion', '2'),
-('stateRevision', '5'),
+('stateRevision', '14'),
 ('workDays', '22');
 
 -- --------------------------------------------------------
@@ -255,6 +255,13 @@ CREATE TABLE `deduction_categories` (
   `status` varchar(20) NOT NULL DEFAULT 'Active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `deduction_categories`
+--
+
+INSERT INTO `deduction_categories` (`id`, `name`, `type`, `amount`, `desc`, `status`) VALUES
+(1, 'PERAA', 'percent', 3.50, 'Private Education Retirement Annuity Association — employee retirement contribution', 'Active');
+
 -- --------------------------------------------------------
 
 --
@@ -370,7 +377,10 @@ CREATE TABLE `payroll_records` (
 INSERT INTO `payroll_records` (`id`, `empId`, `name`, `month`, `monthName`, `year`, `period`, `gross`, `deMinimisSum`, `thirteenth`, `thirteenTaxable`, `thirteenExempt`, `thirteenTax`, `net`, `sss`, `phil`, `pag`, `bir`, `cash`, `bonuses`, `date`, `subjectBreakdown`, `payNote`, `customDeds`, `salaryBase`, `absenceWorkDays`, `absenceDays`, `teachingSemester`, `teachingSchoolYear`) VALUES
 (188, 2, 'John Cabigting', 9, 'September', 2026, 'September 2026', 34545.45, 0.00, 0.00, 0.00, 0.00, 0.00, 30203.29, 1725.00, 863.64, 100.00, 1653.52, 0.00, '[]', '2026-09-10', '[]', '', '[]', NULL, NULL, NULL, NULL, NULL),
 (189, 3, 'Jhon Gerald Batuaan', 9, 'September', 2026, 'September 2026', 26791.90, 0.00, 0.00, 0.00, 0.00, 0.00, 24096.29, 1350.00, 669.80, 100.00, 575.81, 0.00, '[]', '2026-09-10', '[]', '', '[]', NULL, NULL, NULL, NULL, NULL),
-(190, 8, 'Paolo Mendoza', 9, 'September', 2026, 'September 2026', 13860.00, 0.00, 0.00, 0.00, 0.00, 0.00, 12713.50, 700.00, 346.50, 100.00, 0.00, 0.00, '[]', '2026-10-21', '[{\"type\":\"subject\",\"subject\":\"Data Structures\",\"days\":\"M, W, F\",\"level\":\"College\",\"deptCode\":\"CS\",\"qty\":39,\"rate\":210,\"amount\":8190},{\"type\":\"subject\",\"subject\":\"Web Systems\",\"days\":\"T, Th\",\"level\":\"College\",\"deptCode\":\"CS\",\"qty\":27,\"rate\":210,\"amount\":5670}]', '', '[]', NULL, NULL, NULL, NULL, NULL);
+(190, 8, 'Paolo Mendoza', 9, 'September', 2026, 'September 2026', 13860.00, 0.00, 0.00, 0.00, 0.00, 0.00, 12713.50, 700.00, 346.50, 100.00, 0.00, 0.00, '[]', '2026-10-21', '[{\"type\":\"subject\",\"subject\":\"Data Structures\",\"days\":\"M, W, F\",\"level\":\"College\",\"deptCode\":\"CS\",\"qty\":39,\"rate\":210,\"amount\":8190},{\"type\":\"subject\",\"subject\":\"Web Systems\",\"days\":\"T, Th\",\"level\":\"College\",\"deptCode\":\"CS\",\"qty\":27,\"rate\":210,\"amount\":5670}]', '', '[]', NULL, NULL, NULL, NULL, NULL),
+(191, 6, 'Mark Anthony Reyes', 9, 'September', 2026, 'September 2026', 6056.67, 0.00, 0.00, 0.00, 0.00, 0.00, 5194.69, 300.00, 250.00, 100.00, 0.00, 0.00, '[]', '2026-11-06', '[{\"type\":\"subject\",\"subject\":\"Science 8\",\"days\":\"M, W, F\",\"level\":\"High School\",\"deptCode\":\"G8\",\"qty\":17.3333333333333,\"rate\":230,\"amount\":3986.67},{\"type\":\"subject\",\"subject\":\"MAPEH 8\",\"days\":\"T, Th\",\"level\":\"High School\",\"deptCode\":\"G8\",\"qty\":9,\"rate\":230,\"amount\":2070}]', '', '[{\"id\":1,\"name\":\"PERAA\",\"amount\":211.98}]', 230.00, NULL, NULL, '1st', '2026-2027'),
+(192, 5, 'Rosario Dela Cruz', 9, 'September', 2026, 'September 2026', 10125.00, 0.00, 0.00, 0.00, 0.00, 0.00, 8917.49, 500.00, 253.13, 100.00, 0.00, 0.00, '[]', '2026-11-06', '[]', '', '[{\"id\":1,\"name\":\"PERAA\",\"amount\":354.38}]', 10125.00, 22.00, 0.00, NULL, NULL),
+(193, 5, 'Rosario Dela Cruz', 10, 'October', 2026, 'October 2026', 10125.00, 0.00, 0.00, 0.00, 0.00, 0.00, 8917.49, 500.00, 253.13, 100.00, 0.00, 0.00, '[]', '2026-11-06', '[]', '', '[{\"id\":1,\"name\":\"PERAA\",\"amount\":354.38}]', 10125.00, 22.00, 0.00, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -646,7 +656,7 @@ INSERT INTO `teaching_load_records` (`id`, `empId`, `semester`, `schoolYear`, `c
 (7, 5, '1st', '2026-2027', 'Teaching', 'Elementary', 23, 'Teacher 3B (T-3B)', 270.00, 'per Month', 10125.00, 'absences', 0.00, 1.00, 9664.77, '2026-10-20T13:57:45.156Z'),
 (8, 6, '1st', '2026-2027', 'Teaching', 'High School', 33, 'Teacher 2B (T-2B)', 230.00, 'per Workload', 20000.00, 'hours', 18.00, 0.00, 6072.00, '2026-10-22T05:46:35.375Z'),
 (9, 7, '1st', '2026-2027', 'Teaching', 'Graduate School', 49, 'Associate Professor 1', 330.00, 'per Hour', 35000.00, 'hours', 12.00, 0.00, 17424.00, '2026-10-20T07:38:48.282Z'),
-(10, 8, '1st', '2026-2027', 'Teaching', 'College', 4, 'Instructor 2', 210.00, 'per Hour', 22000.00, 'hours', 15.00, 0.00, 13860.00, '2026-10-20T07:38:48.282Z'),
+(10, 8, '1st', '2026-2027', 'Teaching', 'College', 6, 'Instructor 4', 250.00, 'per Hour', 22000.00, 'hours', 15.00, 0.00, 16500.00, '2026-11-03T04:02:55.686Z'),
 (11, 9, '1st', '2026-2027', 'Teaching', 'College', 13, 'Professor 1', 390.00, 'per Hour', 37000.00, 'hours', 22.00, 0.00, 37752.00, '2026-10-20T14:04:22.741Z');
 
 -- --------------------------------------------------------
@@ -689,7 +699,7 @@ INSERT INTO `users` (`id`, `first`, `last`, `email`, `role`, `status`, `date`, `
 (5, 'Rosario', 'Dela Cruz', 'elem.teacher@rcc.edu.ph', 'Employee', 'Active', '2026-10-20', 10125.00, 'Teaching', 'Elementary Department', '2024-06-03', 270.00, 0.00, 0.00, NULL, 23, 'Teacher 3B (T-3B)', 0, 'Elementary'),
 (6, 'Mark Anthony', 'Reyes', 'hs.teacher@rcc.edu.ph', 'Employee', 'Active', '2026-10-20', 20000.00, 'Teaching', 'High School Department', '2025-06-02', 230.00, 0.00, 0.00, NULL, 33, 'Teacher 2B (T-2B)', 0, 'High School'),
 (7, 'Sheila', 'Ramos', 'grad.teacher@rcc.edu.ph', 'Employee', 'Active', '2026-10-20', 35000.00, 'Teaching', 'Graduate School Department', '2023-08-14', 330.00, 0.00, 0.00, NULL, 49, 'Associate Professor 1', 0, 'Graduate School'),
-(8, 'Paolo', 'Mendoza', 'college.teacher@rcc.edu.ph', 'Employee', 'Active', '2026-10-20', 22000.00, 'Teaching', 'College of Computer Studies', '2025-08-04', 210.00, 0.00, 0.00, NULL, 4, 'Instructor 2', 0, 'College'),
+(8, 'Paolo', 'Mendoza', 'college.teacher@rcc.edu.ph', 'Employee', 'Active', '2026-10-20', 22000.00, 'Teaching', 'College of Computer Studies', '2025-08-04', 250.00, 0.00, 0.00, NULL, 6, 'Instructor 4', 0, 'College'),
 (9, 'Ana Luisa', 'Santos', 'dual.teacher@rcc.edu.ph', 'Employee', 'Active', '2026-10-20', 37000.00, 'Teaching', 'College of Computer Studies', '2022-08-08', 390.00, 0.00, 0.00, NULL, 13, 'Professor 1', 0, 'College');
 
 --
@@ -848,7 +858,7 @@ ALTER TABLE `leave_records`
 -- AUTO_INCREMENT for table `payroll_records`
 --
 ALTER TABLE `payroll_records`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=191;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=194;
 
 --
 -- AUTO_INCREMENT for table `sss_table`
