@@ -209,5 +209,5 @@ async function start() {
   if (!st.connected) throw new Error('MySQL database is unavailable: ' + st.error);
   return app.listen(PORT, () => console.log('RCC-APS Payroll System running at http://localhost:' + PORT));
 }
-if (require.main === module) start().catch(error => { console.error('[Startup] ' + error.message); process.exitCode = 1; });
+if (require.main === module) start().catch(error => { console.error('[Startup] ' + error.message); process.exit(1); });
 module.exports = { app, start };
