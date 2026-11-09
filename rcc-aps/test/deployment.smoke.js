@@ -1,7 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
 process.env.JWT_SECRET = 'test-only-deployment-signing-secret';
-process.env.GOOGLE_CLIENT_ID = 'deployment-test.apps.googleusercontent.com';
 process.env.TRUST_PROXY = '1';
 process.env.DEMO_DATA_ONLY = 'true';
 const db = require('../server/db');
@@ -27,12 +26,13 @@ async function run() {
   response = await fetch(base + '/api/ready');
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { status: 'unavailable' });
-  response = await fetch(base + '/api/auth/google/config', { headers: { 'X-Forwarded-Proto': 'https' } });
-  assert.match(response.headers.get('set-cookie'), /; Secure/);
-  app.set('trust proxy', false);
-  response = await fetch(base + '/api/auth/google/config', { headers: { 'X-Forwarded-Proto': 'https' } });
-  assert.doesNotMatch(response.headers.get('set-cookie'), /; Secure/);
-  console.log('PASS: database readiness, generic failure response, and proxy-aware secure cookies.');
+  response = await fetch(base + '/api/auth/google/config');
+  assert.equal(response.status, 404);
+  response = await fetch(base + '/api/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(response.status, 404);
+  response = await fetch(base + '/api/auth/me');
+  assert.equal(response.status, 401, 'Password sessions must still require authentication');
+  console.log('PASS: database readiness, generic failure response, removed SSO endpoints, and protected password sessions.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   db.q = originalQuery;

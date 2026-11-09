@@ -11,7 +11,6 @@ const content = [
   `JWT_SECRET=${secret()}`,
   `DB_SEED_PASSWORD=${secret()}`,
   'CLOUDFLARE_TUNNEL_TOKEN=',
-  'GOOGLE_CLIENT_ID=disabled',
   'HRIS_API_URL=',
   'HRIS_API_KEY=',
   ''

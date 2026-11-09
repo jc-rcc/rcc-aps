@@ -89,10 +89,6 @@ async function init() {
       "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'profiles' AND COLUMN_NAME = 'photo'"
     );
     if (!photoCols.length) await poolConn.query('ALTER TABLE profiles ADD COLUMN photo MEDIUMTEXT');
-    const [googleCols] = await poolConn.query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth' AND COLUMN_NAME = 'googleSub'");
-    if (!googleCols.length) await poolConn.query('ALTER TABLE auth ADD COLUMN googleSub VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL DEFAULT NULL');
-    const [googleIndexes] = await poolConn.query("SHOW INDEX FROM auth WHERE Key_name = 'uk_auth_google_sub'");
-    if (!googleIndexes.length) await poolConn.query('ALTER TABLE auth ADD UNIQUE KEY uk_auth_google_sub (googleSub)');
     console.log('[MySQL] Migration: users + payroll_records + teaching_load_classes columns verified.');
 
     // Step 3c: Migration — rename teacher_ranks.ratePerHour → rate (idempotent)

@@ -18,7 +18,7 @@ CI/CD uses GitHub-hosted runners. A temporary Tailscale connection lets the depl
 
 Existing hardware avoids renting an application server, but electricity, connectivity, domain registration, backup storage, and applicable provider quotas still have costs. Record the actual domain and any paid plans before submitting. Do not describe this as guaranteed free hosting.
 
-The initial setup uses one app container and one database. Capacity is bounded by this computer's CPU, memory, storage, and upload speed; Compose does not provide automatic multi-host scaling or zero-downtime releases. More traffic would require measured capacity planning, a stronger host, and potentially a managed database. Google sign-in challenges are currently stored in memory, so multiple app replicas would require shared challenge storage or affinity.
+The initial setup uses one app container and one database. Capacity is bounded by this computer's CPU, memory, storage, and upload speed; Compose does not provide automatic multi-host scaling or zero-downtime releases. More traffic would require measured capacity planning, a stronger host, and potentially a managed database.
 
 The computer must stay powered on, awake, online, and running Docker Desktop. Restart policies restart containers when the Docker engine runs; they do not start Docker Desktop before Windows sign-in. Verify recovery after a reboot. A volume protects data during container replacement, but not against disk failure or volume deletion. Backups must also be copied off this computer.
 
@@ -48,7 +48,7 @@ The original seed and HRIS fixture are excluded from the Docker build context. T
 
 Seeding only initializes an empty users table. Editing the seed or changing `DB_SEED_PASSWORD` does not overwrite an existing database or reset existing passwords. Do not delete a volume to refresh demo data without first reviewing and backing it up.
 
-Google sign-in is disabled initially. The generic bootstrap account uses password login. Enable Google sign-in only for real, authorized, pre-registered school accounts and configure the final HTTPS origin in the Google OAuth web client.
+The application uses password login with JWT sessions. The generic System Admin account can sign in as admin; Google SSO is not part of the application.
 
 For an existing three-account demo database, `server/db/system-admin.js` reuses the application's transactional account-management code to retain ID 1, set its display name to System Admin, hash the new password, and remove only the two original demo accounts. A host maintenance helper takes a database backup first and pauses the app during the update. Unknown accounts or historical employee records block cleanup; they are not silently deleted. Existing Finance/Employee functionality remains available for accounts the System Admin creates later.
 
@@ -104,7 +104,7 @@ Add these secrets in the `production` environment:
 | `TS_OAUTH_CLIENT_ID` | Tailscale OAuth client ID. |
 | `TS_OAUTH_SECRET` | Tailscale OAuth secret for the tagged ephemeral CI connection. |
 
-Database passwords, JWT secret, demo bootstrap password, tunnel token, and optional Google/HRIS configuration live on the Windows host in `.env`. The workflow does not copy application secrets from GitHub. It uses the automatically issued `GITHUB_TOKEN` to publish images.
+Database passwords, JWT secret, demo bootstrap password, tunnel token, and optional HRIS configuration live on the Windows host in `.env`. The workflow does not copy application secrets from GitHub. It uses the automatically issued `GITHUB_TOKEN` to publish images.
 
 Protect `main` and require successful `smoke-tests` and `container-tests` checks before merging. Workflow file: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
@@ -112,7 +112,7 @@ Protect `main` and require successful `smoke-tests` and `container-tests` checks
 
 1. Pushes to `main` or `deployment/**`, and pull requests to `main`, trigger validation. An optional manual rerun is also available.
 2. GitHub installs Node.js 22 dependencies with `npm ci` and runs all smoke-test scripts via `npm test`.
-3. Container validation builds the production image, ensures original fixtures are absent, starts fresh MySQL/app containers, checks readiness and cleaned records, and runs the existing database and Google sign-in integration suites against isolated test databases. CI's elevated test user is confined to that disposable CI database server.
+3. Container validation builds the production image, ensures original fixtures are absent, starts fresh MySQL/app containers, checks readiness and cleaned records, and runs the database and System Admin integration suites against isolated test databases. CI's elevated test user is confined to that disposable CI database server.
 4. Only a successful run on `main` publishes a commit-tagged image to GHCR. Deployment references its immutable SHA-256 digest.
 5. Once `DEPLOY_ENABLED=true`, a GitHub-hosted runner joins Tailscale, verifies the SSH host key, uploads the Compose/scripts bundle, and invokes Windows PowerShell on this PC. No untrusted pull-request job receives production secrets.
 6. The host pulls the image, waits for MySQL, takes a SQL backup, replaces the application/tunnel containers, and waits for application readiness. It records the previous successful app image and Compose file. The workflow then checks the public HTTPS readiness endpoint through Cloudflare. Failure fails the job; it does not silently report success.
@@ -141,4 +141,4 @@ Submit these after commissioning:
 - Architecture document: `https://github.com/jc-rcc/rcc-aps/blob/main/rcc-aps/DEPLOYMENT.md` after merging these files.
 - Evidence: successful Actions run, live login, role-scoped access, saving a demo record, and data surviving container recreation.
 
-Validation passed in [GitHub Actions run 42567949512](https://github.com/jc-rcc/rcc-aps/actions/runs/42567949512) for commit `3edbc6614665d653f009d18c40fc1df96aa0fec0`: all 14 smoke-test scripts, the production image build, exclusion of original fixtures, fresh MySQL/app startup, readiness and cleaned-data checks, and the database/Google sign-in integration suites. Workflow, Compose, and PowerShell syntax checks also passed locally. MySQL portability fixes quote the reserved `rank` identifier and use expression syntax for the TEXT default. Publishing/deployment were skipped on this preparation branch. The Windows host and public tunnel still need commissioning; no public deployment or uptime claim is made yet.
+Validation passed in [GitHub Actions run 42567949512](https://github.com/jc-rcc/rcc-aps/actions/runs/42567949512) for commit `3edbc6614665d653f009d18c40fc1df96aa0fec0`: all 14 smoke-test scripts, the production image build, exclusion of original fixtures, fresh MySQL/app startup, readiness and cleaned-data checks, and the database integration suite. Workflow, Compose, and PowerShell syntax checks also passed locally. MySQL portability fixes quote the reserved `rank` identifier and use expression syntax for the TEXT default. Publishing/deployment were skipped on this preparation branch. The Windows host and public tunnel now serve the application at https://rccaps.dpdns.org. Main-branch automated deployment still needs commissioning. The current password-only configuration must pass its updated CI checks before release.

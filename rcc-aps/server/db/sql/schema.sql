@@ -42,8 +42,6 @@ CREATE TABLE IF NOT EXISTS auth (
   page    VARCHAR(50)  NOT NULL DEFAULT '',
   role    VARCHAR(20)  NOT NULL DEFAULT 'employee',
   status  VARCHAR(20)  NOT NULL DEFAULT 'Active',
-  googleSub VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL DEFAULT NULL,
-  UNIQUE KEY uk_auth_google_sub (googleSub),
   UNIQUE KEY uk_auth_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

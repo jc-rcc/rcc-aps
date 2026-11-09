@@ -44,7 +44,6 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       DB_SEED_FILE: /app/server/db/demo-seed.json
       DB_SEED_PASSWORD: ${DB_SEED_PASSWORD:?DB_SEED_PASSWORD is required}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-disabled}
       HRIS_API_URL: ${HRIS_API_URL:-}
       HRIS_API_KEY: ${HRIS_API_KEY:-}
     depends_on:

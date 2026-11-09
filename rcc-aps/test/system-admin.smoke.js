@@ -26,14 +26,21 @@ async function run() {
   const history = structuredClone(state);history.attendance=[{empId:2,date:'2026-01-01',hours:1}];
   await assert.rejects(mergeState(history,planAdminUpdate(history,password),history.auth[1]),/must be deactivated/);
 
-  const elements = {emailInp:{value:'admin'},passInp:{value:password},errBox:{classList:{remove(){},add(){throw Error('Admin username rejected by frontend');}}},errText:{textContent:''}};
+  let errorShown=false;
+  const elements = {emailInp:{value:'admin'},passInp:{value:password},errBox:{classList:{remove(){errorShown=false;},add(){errorShown=true;}}},errText:{textContent:''}};
   let submitted, completed;
   const context = vm.createContext({document:{getElementById:id=>elements[id],addEventListener(){}},setInterval(){}});
   vm.runInContext(fs.readFileSync(__dirname+'/../public/js/auth.js','utf8'),context);
+  let cleared=false;
+  context.syncDemo=async()=>false;
+  context.clearAuthToken=()=>{cleared=true;};
+  await vm.runInContext('completeLogin({id:1,role:"admin"})',context);
+  assert.equal(cleared,true);assert.equal(errorShown,true);
+  assert.match(elements.errText.textContent,/Unable to load/);
   context.checkLogin = async (email,pass) => {submitted={email,pass};return {ok:true,user:{id:1,role:'admin'}};};
   context.completeLogin = async user => {completed=user;};
   await vm.runInContext('handleLogin()',context);
-  assert.equal(submitted.email,'admin');assert.equal(completed.role,'admin');
+  assert.equal(submitted.email,'admin');assert.equal(completed.role,'admin');assert.equal(errorShown,false);
   console.log('PASS: sole generic System Admin, hashed password, known-demo removal, history/unknown-account protection, and frontend username login.');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

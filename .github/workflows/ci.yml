@@ -57,12 +57,11 @@ jobs:
       - name: Install integration-test dependencies
         working-directory: rcc-aps
         run: npm ci
-      - name: Run existing database and Google sign-in integration tests
+      - name: Run database and System Admin integration tests
         working-directory: rcc-aps
         run: |
           printf '%s\n' "CREATE USER IF NOT EXISTS 'ci_test'@'%' IDENTIFIED BY 'ci-only-password';" "GRANT ALL PRIVILEGES ON *.* TO 'ci_test'@'%';" | docker compose -f ../compose.yaml exec -T db sh -c 'export MYSQL_PWD=$MYSQL_ROOT_PASSWORD; exec mysql -u root'
           docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/database-upgrade.integration.js
-          docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/google-sso.integration.js
           docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/system-admin.integration.js
       - name: Container status on failure
         if: failure()

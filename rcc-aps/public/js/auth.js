@@ -99,8 +99,6 @@ async function completeLogin(u) {
 }
 
 function logout() {
-  if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
-  if (typeof initGoogleSignIn === 'function') void initGoogleSignIn();
   if (typeof closeSidebar==='function') closeSidebar();
   clearAuthToken();
   localStorage.removeItem(DEMO_KEY);
