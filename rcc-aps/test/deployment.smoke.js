@@ -1,0 +1,39 @@
+'use strict';
+const assert = require('node:assert/strict');
+process.env.JWT_SECRET = 'test-only-deployment-signing-secret';
+process.env.GOOGLE_CLIENT_ID = 'deployment-test.apps.googleusercontent.com';
+process.env.TRUST_PROXY = '1';
+process.env.DEMO_DATA_ONLY = 'true';
+const db = require('../server/db');
+const originalQuery = db.q;
+const { app } = require('../server/server');
+let server;
+async function run() {
+  const demo = require('../server/hris-demo');
+  assert.equal(demo.employees.length, 3);
+  assert.ok(demo.employees.every(user => user.email.startsWith('demo.') && !user.password));
+  assert.deepEqual(demo.attendance, []);
+  assert.deepEqual(demo.leaveRecords, []);
+  server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  db.q = async () => [{ value: 1 }];
+  let response = await fetch(base + '/api/ready');
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { status: 'ready' });
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  db.q = async () => { throw new Error('private-database-host: secret-password'); };
+  response = await fetch(base + '/api/ready');
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { status: 'unavailable' });
+  response = await fetch(base + '/api/auth/google/config', { headers: { 'X-Forwarded-Proto': 'https' } });
+  assert.match(response.headers.get('set-cookie'), /; Secure/);
+  app.set('trust proxy', false);
+  response = await fetch(base + '/api/auth/google/config', { headers: { 'X-Forwarded-Proto': 'https' } });
+  assert.doesNotMatch(response.headers.get('set-cookie'), /; Secure/);
+  console.log('PASS: database readiness, generic failure response, and proxy-aware secure cookies.');
+}
+run().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
+  db.q = originalQuery;
+  if (server) await new Promise(resolve => server.close(resolve));
+});

@@ -1,56 +1,153 @@
-name: RCC-APS CI
+name: RCC-APS CI and deployment
 
 on:
   push:
-    branches:
-      - main
-      - 'deployment/**'
+    branches: [main, 'deployment/**']
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rcc-aps-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   smoke-tests:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: rcc-aps
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: rcc-aps/package-lock.json
+      - run: npm ci
+      - run: npm test
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run smoke tests
+  container-tests:
+    needs: smoke-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: rcc-aps/package-lock.json
+      - name: Generate isolated CI secrets
+        run: node scripts/configure-demo.cjs
+      - name: Build production image
+        run: docker build --tag rcc-aps:local ./rcc-aps
+      - name: Check image contains only the cleaned seed
+        run: docker run --rm --entrypoint node rcc-aps:local -e "const fs=require('fs'); if(fs.existsSync('/app/server/db/seed.json') || fs.existsSync('/app/server/hris-mock.js') || !require('/app/server/db/demo-seed.json').demoOnly) process.exit(1)"
+      - name: Start app with a fresh MySQL database
+        run: docker compose up -d --wait --wait-timeout 240 db app
+      - name: Verify readiness and cleaned data
         run: |
-          set -e
-          for f in \
-            test/admin-user-pay-visibility.smoke.js \
-            test/frontend-state.smoke.js \
-            test/google-sso.smoke.js \
-            test/incremental-state.smoke.js \
-            test/payroll-calendar-hours.smoke.js \
-            test/payroll-rank-sync.smoke.js \
-            test/payroll-workdays.smoke.js \
-            test/payslip-print.smoke.js \
-            test/payslip-view.smoke.js \
-            test/peraa.smoke.js \
-            test/profile-photo.smoke.js \
-            test/report-export.smoke.js \
-            test/teachingload.smoke.js
-          do
-            echo "::group::Running $f"
-            node "$f"
-            echo "PASS: $f"
-            echo "::endgroup::"
-          done
+          docker compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          docker compose exec -T app node -e "const db=require('./server/db');db.assembleState().then(s=>{if(s.users.length!==3 || s.payrollRecords.length || s.attendance.length || !s.users.every(u=>u.email.startsWith('demo.')))process.exit(1);process.exit(0)}).catch(()=>process.exit(1))"
+      - name: Install integration-test dependencies
+        working-directory: rcc-aps
+        run: npm ci
+      - name: Run existing database and Google sign-in integration tests
+        working-directory: rcc-aps
+        run: |
+          printf '%s\n' "CREATE USER IF NOT EXISTS 'ci_test'@'%' IDENTIFIED BY 'ci-only-password';" "GRANT ALL PRIVILEGES ON *.* TO 'ci_test'@'%';" | docker compose -f ../compose.yaml exec -T db sh -c 'export MYSQL_PWD=$MYSQL_ROOT_PASSWORD; exec mysql -u root'
+          docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/database-upgrade.integration.js
+          docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/google-sso.integration.js
+      - name: Container status on failure
+        if: failure()
+        run: docker compose ps -a
+      - name: Remove disposable CI containers and volumes
+        if: always()
+        run: docker compose down -v
+
+  publish:
+    needs: [smoke-tests, container-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.name }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: ./rcc-aps
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+  deploy:
+    needs: publish
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_URL }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      RELEASE_SHA: ${{ github.sha }}
+      RELEASE_IMAGE: ${{ needs.publish.outputs.image }}@${{ needs.publish.outputs.digest }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment settings
+        shell: bash
+        run: |
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]] || { echo 'Set DEPLOY_HOST to the Windows Tailscale IP or DNS name.'; exit 1; }
+          [[ "$DEPLOY_USER" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo 'Set DEPLOY_USER to the Windows SSH username.'; exit 1; }
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]] || exit 1
+          [[ "$PUBLIC_URL" =~ ^https://[a-zA-Z0-9.-]+/?$ ]] || { echo 'Set PUBLIC_URL to your HTTPS application origin.'; exit 1; }
+      - name: Connect to the host's private Tailscale network
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+      - name: Configure SSH with a pinned server key
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          test -s ~/.ssh/id_ed25519
+          test -s ~/.ssh/known_hosts
+      - name: Upload release and deploy on Windows
+        run: |
+          tar -czf deployment-bundle.tar.gz compose.yaml scripts/Deploy.ps1 scripts/Backup.ps1
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -P "$DEPLOY_PORT" deployment-bundle.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:rcc-aps-production/incoming-$RELEASE_SHA.tar.gz"
+          encoded=$(node scripts/encode-remote.cjs)
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=30 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded"
+      - name: Verify public application through Cloudflare
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 --max-time 15 "${PUBLIC_URL%/}/api/ready" -o readiness.json
+          node -e "if(JSON.parse(require('fs').readFileSync('readiness.json')).status!=='ready')process.exit(1)"

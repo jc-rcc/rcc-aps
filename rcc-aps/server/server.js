@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const hrisMock = require('./hris-mock');
+const hrisMock = process.env.DEMO_DATA_ONLY === 'true' ? require('./hris-demo') : require('./hris-mock');
 const { validateStateBody } = require('./state-validator');
 const db = require('./db');
 const { init } = require('./db/init');
@@ -9,6 +9,8 @@ const { requireAuth, requireRole } = require('./middleware/jwt');
 const { actorFor, visibleState } = require('./state-access');
 
 const app = express();
+// The production port is private; cloudflared is its only inbound proxy.
+app.set('trust proxy', process.env.TRUST_PROXY === '1' ? 1 : false);
 const PORT = parseInt(process.env.PORT) || 3000;
 const HRIS_API_URL = process.env.HRIS_API_URL || '';      // e.g. https://hris.rcc.edu.ph/api
 const HRIS_API_KEY = process.env.HRIS_API_KEY || '';      // bearer token for the HRIS API
@@ -97,6 +99,17 @@ async function fetchHrisData() {
 // ── HEALTH & DB STATUS ───────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'RCC-APS Payroll System API', database: 'MySQL', hris: HRIS_API_URL ? 'connected' : 'mock' });
+});
+
+// Readiness must fail when storage is unavailable, without disclosing DB details.
+app.get('/api/ready', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    await db.q('SELECT 1');
+    res.json({ status: 'ready' });
+  } catch (_) {
+    res.status(503).json({ status: 'unavailable' });
+  }
 });
 
 app.get('/api/db/status', requireAuth, requireRole('admin','finance'), async (req, res) => {
