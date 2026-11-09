@@ -39,8 +39,8 @@ Existing `api/index.js` and `vercel.json` are unused by this deployment. Disconn
 
 This deployment initializes a NEW MySQL volume from `server/db/demo-seed.json`:
 
-- Three synthetic accounts: `demo.admin@rcc.edu.ph`, `demo.finance@rcc.edu.ph`, and `demo.employee@rcc.edu.ph`.
-- Initial password: the randomly generated `DB_SEED_PASSWORD` in the host-only `.env` file. It is hashed before storage. Change each account's password before sharing the public demo.
+- One generic account with display name **System Admin** and login username **admin**. Its internal email is `admin@rcc.edu.ph`. Finance/Employee accounts are not pre-created.
+- Initial password: the randomly generated `DB_SEED_PASSWORD` in the host-only `.env` file. It is hashed before storage. Account maintenance can set a chosen password privately; that new password is not written to source control or substituted into the bootstrap setting.
 - No existing payroll, attendance, leave records, personal profiles, photographs, or teaching-load records.
 - Existing application tax tables, contribution settings, leave types, and rank configuration are retained as sample configuration, not certified as current payroll rules.
 
@@ -48,7 +48,9 @@ The original seed and HRIS fixture are excluded from the Docker build context. T
 
 Seeding only initializes an empty users table. Editing the seed or changing `DB_SEED_PASSWORD` does not overwrite an existing database or reset existing passwords. Do not delete a volume to refresh demo data without first reviewing and backing it up.
 
-Google sign-in is disabled initially. Demo addresses are synthetic and are intended for password login. Enable Google sign-in only for real, authorized, pre-registered school accounts and configure the final HTTPS origin in the Google OAuth web client.
+Google sign-in is disabled initially. The generic bootstrap account uses password login. Enable Google sign-in only for real, authorized, pre-registered school accounts and configure the final HTTPS origin in the Google OAuth web client.
+
+For an existing three-account demo database, `server/db/system-admin.js` reuses the application's transactional account-management code to retain ID 1, set its display name to System Admin, hash the new password, and remove only the two original demo accounts. A host maintenance helper takes a database backup first and pauses the app during the update. Unknown accounts or historical employee records block cleanup; they are not silently deleted. Existing Finance/Employee functionality remains available for accounts the System Admin creates later.
 
 ## Local preview on Windows
 
@@ -134,7 +136,7 @@ docker compose --project-directory $root --env-file "$root/.env" --env-file "$ro
 
 Submit these after commissioning:
 
-- Live URL: **pending domain and first verified public deployment**.
+- Live URL: **https://rccaps.dpdns.org** (the initial Docker/Tunnel setup renders the login page; main-branch automated deployment still needs commissioning).
 - Workflow: `https://github.com/jc-rcc/rcc-aps/blob/main/.github/workflows/ci.yml` after merging these files.
 - Architecture document: `https://github.com/jc-rcc/rcc-aps/blob/main/rcc-aps/DEPLOYMENT.md` after merging these files.
 - Evidence: successful Actions run, live login, role-scoped access, saving a demo record, and data surviving container recreation.

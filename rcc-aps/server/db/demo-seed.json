@@ -846,40 +846,14 @@
   "users": [
     {
       "id": 1,
-      "first": "Demo",
-      "last": "Administrator",
-      "email": "demo.admin@rcc.edu.ph",
+      "first": "System",
+      "last": "Admin",
+      "email": "admin@rcc.edu.ph",
       "role": "System Admin",
       "status": "Active",
-      "department": "Demo",
+      "department": "Administration",
       "classification": "Non-Teaching",
       "salary": 0,
-      "date": "2026-01-01",
-      "hireDate": "2026-01-01"
-    },
-    {
-      "id": 2,
-      "first": "Demo",
-      "last": "Finance",
-      "email": "demo.finance@rcc.edu.ph",
-      "role": "Finance Officer",
-      "status": "Active",
-      "department": "Demo",
-      "classification": "Non-Teaching",
-      "salary": 0,
-      "date": "2026-01-01",
-      "hireDate": "2026-01-01"
-    },
-    {
-      "id": 3,
-      "first": "Demo",
-      "last": "Employee",
-      "email": "demo.employee@rcc.edu.ph",
-      "role": "Employee",
-      "status": "Active",
-      "department": "Demo",
-      "classification": "Non-Teaching",
-      "salary": 20000,
       "date": "2026-01-01",
       "hireDate": "2026-01-01"
     }
@@ -887,36 +861,16 @@
   "auth": {
     "1": {
       "id": 1,
-      "email": "demo.admin@rcc.edu.ph",
+      "email": "admin@rcc.edu.ph",
       "pass": "",
       "label": "System Admin",
       "icon": "shield",
       "page": "adminPage",
       "role": "admin",
       "status": "Active"
-    },
-    "2": {
-      "id": 2,
-      "email": "demo.finance@rcc.edu.ph",
-      "pass": "",
-      "label": "Finance Officer",
-      "icon": "wallet",
-      "page": "financePage",
-      "role": "finance",
-      "status": "Active"
-    },
-    "3": {
-      "id": 3,
-      "email": "demo.employee@rcc.edu.ph",
-      "pass": "",
-      "label": "Employee",
-      "icon": "person",
-      "page": "empPage",
-      "role": "employee",
-      "status": "Active"
     }
   },
-  "nextUserId": 4,
+  "nextUserId": 2,
   "cashAdvances": {},
   "bonusTypes": [],
   "nextBonusId": 1,

@@ -10,8 +10,9 @@ const { app } = require('../server/server');
 let server;
 async function run() {
   const demo = require('../server/hris-demo');
-  assert.equal(demo.employees.length, 3);
-  assert.ok(demo.employees.every(user => user.email.startsWith('demo.') && !user.password));
+  assert.equal(demo.employees.length, 1);
+  assert.equal(demo.employees[0].email, 'admin@rcc.edu.ph');
+  assert.ok(demo.employees.every(user => !user.password));
   assert.deepEqual(demo.attendance, []);
   assert.deepEqual(demo.leaveRecords, []);
   server = app.listen(0, '127.0.0.1');

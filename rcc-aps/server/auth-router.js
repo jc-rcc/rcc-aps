@@ -43,14 +43,15 @@ router.post('/login', async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ ok: false, error: 'Email and password are required.' });
   }
-  if (!isSchoolEmail(email)) return res.status(403).json({ok:false,error:'Only @rcc.edu.ph school accounts can sign in.'});
+  const adminUsername = email === 'admin';
+  if (!adminUsername && !isSchoolEmail(email)) return res.status(403).json({ok:false,error:'Use admin or your @rcc.edu.ph school email.'});
 
   try {
     const state = await db.assembleState();
     // Find auth entry by email
-    const authEntry = Object.values(state.auth || {}).find(
-      a => (a.email || '').toLowerCase() === email
-    );
+    const authEntry = Object.values(state.auth || {}).find(a => adminUsername
+      ? a.id === 1 && a.role === 'admin'
+      : (a.email || '').toLowerCase() === email);
 
     if (!authEntry) {
       return res.status(401).json({ ok: false, error: 'Invalid email or password.' });

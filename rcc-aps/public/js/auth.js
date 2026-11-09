@@ -46,11 +46,11 @@ async function handleLogin() {
   const err   = document.getElementById('errBox');
   err.classList.remove('show');
   if (!email||!pass) {
-    document.getElementById('errText').textContent='Please enter your email and password.';
+    document.getElementById('errText').textContent='Please enter your username or email and password.';
     err.classList.add('show'); return;
   }
-  if (!/^[^\s@]+@rcc\.edu\.ph$/i.test(email)) {
-    document.getElementById('errText').textContent = 'Use your @rcc.edu.ph school email.';
+  if (email !== 'admin' && !/^[^\s@]+@rcc\.edu\.ph$/i.test(email)) {
+    document.getElementById('errText').textContent = 'Use admin or your @rcc.edu.ph school email.';
     err.classList.add('show'); return;
   }
   const res = await checkLogin(email, pass);

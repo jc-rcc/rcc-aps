@@ -19,8 +19,8 @@ const content = [
 try {
   fs.writeFileSync(path.join(root, '.env'), content, { flag: 'wx', mode: 0o600 });
   console.log('Created .env with random secrets. Credentials were not printed.');
-  console.log('Demo accounts: demo.admin@rcc.edu.ph, demo.finance@rcc.edu.ph, demo.employee@rcc.edu.ph');
-  console.log('Their initial password is DB_SEED_PASSWORD in your local .env.');
+  console.log('Initial account: System Admin. Username: admin.');
+  console.log('Its initial password is DB_SEED_PASSWORD in your local .env.');
 } catch (error) {
   if (error.code !== 'EEXIST') throw error;
   console.error('.env already exists; left it unchanged.');

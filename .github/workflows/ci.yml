@@ -53,7 +53,7 @@ jobs:
       - name: Verify readiness and cleaned data
         run: |
           docker compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-          docker compose exec -T app node -e "const db=require('./server/db');db.assembleState().then(s=>{if(s.users.length!==3 || s.payrollRecords.length || s.attendance.length || !s.users.every(u=>u.email.startsWith('demo.')))process.exit(1);process.exit(0)}).catch(()=>process.exit(1))"
+          docker compose exec -T app node -e "const db=require('./server/db');db.assembleState().then(s=>{if(s.users.length!==1 || s.users[0].email!=='admin@rcc.edu.ph' || s.auth[1]?.role!=='admin' || Object.keys(s.auth).length!==1 || s.payrollRecords.length || s.attendance.length)process.exit(1);process.exit(0)}).catch(()=>process.exit(1))"
       - name: Install integration-test dependencies
         working-directory: rcc-aps
         run: npm ci
@@ -63,6 +63,7 @@ jobs:
           printf '%s\n' "CREATE USER IF NOT EXISTS 'ci_test'@'%' IDENTIFIED BY 'ci-only-password';" "GRANT ALL PRIVILEGES ON *.* TO 'ci_test'@'%';" | docker compose -f ../compose.yaml exec -T db sh -c 'export MYSQL_PWD=$MYSQL_ROOT_PASSWORD; exec mysql -u root'
           docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/database-upgrade.integration.js
           docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/google-sso.integration.js
+          docker run --rm --network rcc-aps_database -v "$PWD:/tests:ro" -w /tests -e DB_HOST=db -e DB_USER=ci_test -e DB_PASSWORD=ci-only-password -e JWT_SECRET=ci-only-signing-secret node:22-bookworm-slim node test/system-admin.integration.js
       - name: Container status on failure
         if: failure()
         run: |
