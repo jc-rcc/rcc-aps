@@ -42,8 +42,6 @@ CREATE TABLE IF NOT EXISTS auth (
   page    VARCHAR(50)  NOT NULL DEFAULT '',
   role    VARCHAR(20)  NOT NULL DEFAULT 'employee',
   status  VARCHAR(20)  NOT NULL DEFAULT 'Active',
-  googleSub VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL DEFAULT NULL,
-  UNIQUE KEY uk_auth_google_sub (googleSub),
   UNIQUE KEY uk_auth_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -112,7 +110,7 @@ CREATE TABLE IF NOT EXISTS payroll_records (
   pag           DECIMAL(12,2) NOT NULL DEFAULT 0,
   bir           DECIMAL(12,2) NOT NULL DEFAULT 0,
   cash          DECIMAL(12,2) NOT NULL DEFAULT 0,
-  bonuses       MEDIUMTEXT NOT NULL DEFAULT '[]',
+  bonuses       MEDIUMTEXT NOT NULL DEFAULT ('[]'),
   subjectBreakdown TEXT,
   customDeds    TEXT,
   salaryBase    DECIMAL(12,2) NULL,
@@ -169,7 +167,7 @@ CREATE TABLE IF NOT EXISTS bir_table (
 CREATE TABLE IF NOT EXISTS teacher_ranks (
   id          INT PRIMARY KEY,
   department  VARCHAR(20)  NOT NULL DEFAULT 'College',
-  rank        VARCHAR(120) NOT NULL DEFAULT '',
+  `rank`      VARCHAR(120) NOT NULL DEFAULT '',
   rate        DECIMAL(10,2) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

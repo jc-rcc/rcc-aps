@@ -46,11 +46,11 @@ async function handleLogin() {
   const err   = document.getElementById('errBox');
   err.classList.remove('show');
   if (!email||!pass) {
-    document.getElementById('errText').textContent='Please enter your email and password.';
+    document.getElementById('errText').textContent='Please enter your username or email and password.';
     err.classList.add('show'); return;
   }
-  if (!/^[^\s@]+@rcc\.edu\.ph$/i.test(email)) {
-    document.getElementById('errText').textContent = 'Use your @rcc.edu.ph school email.';
+  if (email !== 'admin' && !/^[^\s@]+@rcc\.edu\.ph$/i.test(email)) {
+    document.getElementById('errText').textContent = 'Use admin or your @rcc.edu.ph school email.';
     err.classList.add('show'); return;
   }
   const res = await checkLogin(email, pass);
@@ -99,8 +99,6 @@ async function completeLogin(u) {
 }
 
 function logout() {
-  if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
-  if (typeof initGoogleSignIn === 'function') void initGoogleSignIn();
   if (typeof closeSidebar==='function') closeSidebar();
   clearAuthToken();
   localStorage.removeItem(DEMO_KEY);

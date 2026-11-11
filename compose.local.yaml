@@ -1,0 +1,6 @@
+# Local preview only. Production publishes no application/database host ports.
+name: rcc-aps-preview
+services:
+  app:
+    ports:
+      - 127.0.0.1:3000:3000

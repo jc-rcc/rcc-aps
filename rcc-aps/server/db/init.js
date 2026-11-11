@@ -5,8 +5,10 @@ const fs = require('fs');
 const path = require('path');
 
 const DB_NAME = process.env.DB_NAME || 'rcc_aps';
+const SEED_PATH = process.env.DB_SEED_FILE || path.join(__dirname, 'seed.json');
 
 async function init() {
+  if (!/^[A-Za-z0-9_]+$/.test(DB_NAME)) throw new Error('Invalid database name.');
   const mysql = require('mysql2/promise');
 
   // Step 1: Connect without selecting a database
@@ -87,10 +89,6 @@ async function init() {
       "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'profiles' AND COLUMN_NAME = 'photo'"
     );
     if (!photoCols.length) await poolConn.query('ALTER TABLE profiles ADD COLUMN photo MEDIUMTEXT');
-    const [googleCols] = await poolConn.query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth' AND COLUMN_NAME = 'googleSub'");
-    if (!googleCols.length) await poolConn.query('ALTER TABLE auth ADD COLUMN googleSub VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL DEFAULT NULL');
-    const [googleIndexes] = await poolConn.query("SHOW INDEX FROM auth WHERE Key_name = 'uk_auth_google_sub'");
-    if (!googleIndexes.length) await poolConn.query('ALTER TABLE auth ADD UNIQUE KEY uk_auth_google_sub (googleSub)');
     console.log('[MySQL] Migration: users + payroll_records + teaching_load_classes columns verified.');
 
     // Step 3c: Migration — rename teacher_ranks.ratePerHour → rate (idempotent)
@@ -115,11 +113,11 @@ async function init() {
     console.log(`[MySQL] Users table has ${rows[0].cnt} records — skipping seed.`);
     // Seed teacher_ranks if empty (even when users exist — for existing DBs)
     const [rankRows] = await pool.query('SELECT COUNT(*) AS cnt FROM teacher_ranks');
-    const seedPath0 = path.join(__dirname, 'seed.json');
+    const seedPath0 = SEED_PATH;
     const seedData0 = fs.existsSync(seedPath0) ? JSON.parse(fs.readFileSync(seedPath0, 'utf8')) : {};
     if (rankRows[0].cnt === 0 && Array.isArray(seedData0.teacherRanks) && seedData0.teacherRanks.length) {
       for (const r of seedData0.teacherRanks) {
-        await pool.query('INSERT INTO teacher_ranks (id, department, rank, rate) VALUES (?,?,?,?)', [r.id, r.department, r.rank, r.rate]);
+        await pool.query('INSERT INTO teacher_ranks (id, department, `rank`, rate) VALUES (?,?,?,?)', [r.id, r.department, r.rank, r.rate]);
       }
       console.log(`[MySQL] Seeded ${seedData0.teacherRanks.length} teacher ranks.`);
       const maxRankId0 = Math.max(...seedData0.teacherRanks.map(r => r.id));
@@ -132,7 +130,7 @@ async function init() {
       const gradRanks = seedData0.teacherRanks.filter(r => r.department === 'Graduate School');
       if (gradRanks.length) {
         for (const r of gradRanks) {
-          await pool.query('INSERT INTO teacher_ranks (id, department, rank, rate) VALUES (?,?,?,?)', [r.id, r.department, r.rank, r.rate]);
+          await pool.query('INSERT INTO teacher_ranks (id, department, `rank`, rate) VALUES (?,?,?,?)', [r.id, r.department, r.rank, r.rate]);
         }
         console.log(`[MySQL] Seeded ${gradRanks.length} Graduate School teacher ranks.`);
         const maxRankId = Math.max(...gradRanks.map(r => r.id));
@@ -145,7 +143,7 @@ async function init() {
   }
 
   // Step 5: Load seed data and persist
-  const seedPath = path.join(__dirname, 'seed.json');
+  const seedPath = SEED_PATH;
   if (!fs.existsSync(seedPath)) {
     console.warn('[MySQL] seed.json not found — skipping seed data.');
     await pool.end();
@@ -153,8 +151,12 @@ async function init() {
   }
 
   const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+  if (seed.demoOnly && (!process.env.DB_SEED_PASSWORD || process.env.DB_SEED_PASSWORD.length < 20)) {
+    throw new Error('Demo database initialization requires DB_SEED_PASSWORD of at least 20 characters.');
+  }
   const db = require('../db');
   for (const account of Object.values(seed.auth || {})) {
+    if (seed.demoOnly) account.pass = process.env.DB_SEED_PASSWORD;
     if (account.pass && !account.pass.startsWith('$2')) account.pass = await require('bcryptjs').hash(account.pass,10);
   }
   await db.persistState(seed);

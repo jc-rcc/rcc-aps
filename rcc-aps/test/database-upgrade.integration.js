@@ -57,6 +57,11 @@ async function run() {
   await db.persistState(state);
   const [idsAfter] = await root.query('SELECT id FROM `' + testDatabase + '`.payroll_records');
   assert.deepEqual(idsBefore,idsAfter,'Unchanged payroll IDs must remain stable');
+  // MySQL requires expression syntax for TEXT defaults, including after migration.
+  const [defaultRow] = await root.query('INSERT INTO `' + testDatabase + '`.payroll_records (empId,year,month) VALUES (3,2099,1)');
+  const [[defaultValues]] = await root.query('SELECT bonuses FROM `' + testDatabase + '`.payroll_records WHERE id=?',[defaultRow.insertId]);
+  assert.equal(defaultValues.bonuses,'[]','Payroll bonuses default must survive schema initialization and migration');
+  await root.query('DELETE FROM `' + testDatabase + '`.payroll_records WHERE id=?',[defaultRow.insertId]);
   // Foreign keys and unique payroll periods are enforced in MySQL itself.
   await assert.rejects(root.query('INSERT INTO `' + testDatabase + '`.payroll_records (empId,year,month) VALUES (3,2026,10)'),error=>error.code==='ER_DUP_ENTRY');
   await assert.rejects(root.query('INSERT INTO `' + testDatabase + '`.profiles (id) VALUES (999)'),error=>error.code==='ER_NO_REFERENCED_ROW_2');

@@ -4,34 +4,12 @@ const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const db       = require('./db');
 const { requireAuth, JWT_SECRET } = require('./middleware/jwt');
-const googleSso = require('./google-sso');
 const { isSchoolEmail } = require('./school-identity');
 
 const router = express.Router();
 
 const BCRYPT_ROUNDS = 10;
 const TOKEN_TTL     = '8h'; // session lasts 8 hours
-
-router.get('/google/config', (req,res) => {
-  res.set('Cache-Control','no-store');
-  const clientId = googleSso.clientId();
-  if (!clientId) return res.json({enabled:false});
-  try { return res.json({enabled:true,clientId,domain:googleSso.SCHOOL_DOMAIN,nonce:googleSso.challenge(req,res)}); }
-  catch (error) { return res.status(error.status || 503).json({ok:false,error:error.message}); }
-});
-
-router.post('/google', async (req,res) => {
-  try {
-    const claims = await googleSso.verify(req,res);
-    const user = await db.googleSignIn(claims);
-    const token = jwt.sign(user,JWT_SECRET,{expiresIn:TOKEN_TTL});
-    res.set('Cache-Control','no-store');
-    return res.json({ok:true,token,user});
-  } catch (error) {
-    if (!error.status) console.error('[Auth] Google sign-in failed.');
-    return res.status(error.status || 500).json({ok:false,error:error.status ? error.message : 'Unable to sign in with Google. Please try again.'});
-  }
-});
 
 // ── POST /api/auth/login ─────────────────────────────────────
 // Body: { email, password }
@@ -43,14 +21,15 @@ router.post('/login', async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ ok: false, error: 'Email and password are required.' });
   }
-  if (!isSchoolEmail(email)) return res.status(403).json({ok:false,error:'Only @rcc.edu.ph school accounts can sign in.'});
+  const adminUsername = email === 'admin';
+  if (!adminUsername && !isSchoolEmail(email)) return res.status(403).json({ok:false,error:'Use admin or your @rcc.edu.ph school email.'});
 
   try {
     const state = await db.assembleState();
     // Find auth entry by email
-    const authEntry = Object.values(state.auth || {}).find(
-      a => (a.email || '').toLowerCase() === email
-    );
+    const authEntry = Object.values(state.auth || {}).find(a => adminUsername
+      ? a.id === 1 && a.role === 'admin'
+      : (a.email || '').toLowerCase() === email);
 
     if (!authEntry) {
       return res.status(401).json({ ok: false, error: 'Invalid email or password.' });

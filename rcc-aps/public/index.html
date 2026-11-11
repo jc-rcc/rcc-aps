@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>RCC-APS | Automated Payroll System</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="css/style.css?v=20261020c"/>
+  <link rel="stylesheet" href="css/style.css?v=20261111a"/>
   <link rel="stylesheet" href="css/responsive.css?v=20261020a"/>
 </head>
 <body>
@@ -74,10 +74,10 @@
 
       <!-- Email -->
       <div style="margin-bottom:20px">
-        <label style="display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:8px">Email Address</label>
+        <label style="display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:8px">Username or Email Address</label>
         <div style="display:flex;align-items:center;background:#fff;border:1.5px solid #E0D8D0;border-radius:10px;overflow:hidden;transition:border 0.2s">
           <span style="padding:0 14px;font-size:16px;color:#aaa">✉</span>
-          <input style="flex:1;border:none;outline:none;padding:14px 0;font-size:14px;font-family:'Source Sans 3',sans-serif;background:transparent;color:#222" type="email" id="emailInp" placeholder="you@rcc.edu.ph"/>
+          <input style="flex:1;border:none;outline:none;padding:14px 0;font-size:14px;font-family:'Source Sans 3',sans-serif;background:transparent;color:#222" type="text" autocomplete="username" id="emailInp" placeholder="admin or you@rcc.edu.ph"/>
         </div>
       </div>
 
@@ -97,12 +97,6 @@
         <span style="font-size:18px">→</span>
         <div class="spinner" id="spinner" style="display:none"></div>
       </button>
-
-      <div style="display:flex;align-items:center;gap:12px;margin:22px 0;color:#999;font-size:12px"><span style="height:1px;background:#ddd;flex:1"></span>OR<span style="height:1px;background:#ddd;flex:1"></span></div>
-      <div id="googleSignInButton" style="display:flex;justify-content:center;min-height:44px">
-        <button type="button" disabled style="width:100%;padding:12px;background:#fff;border:1px solid #dadce0;border-radius:4px;color:#777;font:500 14px Arial,sans-serif">Continue with Google</button>
-      </div>
-      <div id="googleSignInStatus" role="status" style="text-align:center;font-size:12px;color:#777;margin-top:10px">Loading Google sign-in...</div>
 
       <!-- Footer -->
       <div style="text-align:center;margin-top:28px;font-size:13px;color:#999">
@@ -145,7 +139,7 @@
       <button class="nav-item" id="empTlNav" onclick="showEmpPage('empTeachingLoad',this)"><span class="nav-icon">📚</span> Teaching Load</button>
       <button class="nav-item" onclick="showEmpPage('empPassword',this)"><span class="nav-icon">🔑</span> Change Password</button>
     </div>
-    <div class="sb-footer"><button class="logout-btn" onclick="logout()"><span>🚪</span> Log Out</button></div>
+    <div class="sb-footer"><button type="button" class="logout-btn" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="M10 12h11m-4-4 4 4-4 4"/></svg><span>Log Out</span></button></div>
   </aside>
   <div class="dash-main">
     <div class="topbar">
@@ -327,7 +321,7 @@
       <button class="nav-item" onclick="showFinPage('finMyProfile',this)"><span class="nav-icon">👤</span> My Profile</button>
       <button class="nav-item" onclick="showFinPage('finChangePassword',this)"><span class="nav-icon">🔑</span> Change Password</button>
     </div>
-    <div class="sb-footer"><button class="logout-btn" onclick="logout()"><span>🚪</span> Log Out</button></div>
+    <div class="sb-footer"><button type="button" class="logout-btn" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="M10 12h11m-4-4 4 4-4 4"/></svg><span>Log Out</span></button></div>
   </aside>
   <div class="dash-main">
     <div class="topbar">
@@ -1368,7 +1362,7 @@
       <button class="nav-item" onclick="showAdmPage('admMyProfile',this)"><span class="nav-icon">👤</span> My Profile</button>
       <button class="nav-item" onclick="showAdmPage('admChangePassword',this)"><span class="nav-icon">🔑</span> Change Password</button>
     </div>
-    <div class="sb-footer"><button class="logout-btn" onclick="logout()"><span>🚪</span> Log Out</button></div>
+    <div class="sb-footer"><button type="button" class="logout-btn" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="M10 12h11m-4-4 4 4-4 4"/></svg><span>Log Out</span></button></div>
   </aside>
   <div class="dash-main">
     <div class="topbar">
@@ -1929,7 +1923,6 @@
 ════════════════════════════════════════════════════════════ -->
   <script src="js/core.js?v=20261021c"></script>
   <script src="js/auth.js?v=20261021e"></script>
-  <script src="js/google-sso.js?v=20261021b"></script>
   <script src="js/profile-photo.js?v=20261021b"></script>
   <script src="js/employees.js?v=20260822c"></script>
   <script src="js/payroll.js?v=20261021c"></script>

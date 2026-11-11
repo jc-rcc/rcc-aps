@@ -1,0 +1,10 @@
+node_modules
+.git
+.env*
+.jwt-secret
+backups
+tmp
+test
+server/db/seed.json
+server/hris-mock.js
+*.log

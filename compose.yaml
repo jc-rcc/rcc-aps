@@ -1,0 +1,75 @@
+name: rcc-aps
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: rcc_aps
+      MYSQL_USER: rcc_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Generate .env with scripts/configure-demo.cjs first}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql -u "$$MYSQL_USER" -D "$$MYSQL_DATABASE" -e "SELECT 1" >/dev/null 2>&1']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    logging: &logs
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+  app:
+    image: ${APP_IMAGE:-rcc-aps:local}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      TRUST_PROXY: '1'
+      DB_HOST: db
+      DB_PORT: '3306'
+      DB_USER: rcc_app
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: rcc_aps
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      DB_SEED_FILE: /app/server/db/demo-seed.json
+      DB_SEED_PASSWORD: ${DB_SEED_PASSWORD:?DB_SEED_PASSWORD is required}
+      HRIS_API_URL: ${HRIS_API_URL:-}
+      HRIS_API_KEY: ${HRIS_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [database, web]
+    logging: *logs
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [web]
+    security_opt: [no-new-privileges:true]
+    logging: *logs
+
+networks:
+  database:
+    internal: true
+  web:
+
+volumes:
+  mysql-data:

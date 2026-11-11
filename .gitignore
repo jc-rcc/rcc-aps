@@ -15,3 +15,9 @@ nul
 RccAPS_COPY.html
 .vercel
 .env*
+!.env.example
+.release.env
+.previous-release.env
+releases/
+backups/
+deployment-bundle.tar.gz

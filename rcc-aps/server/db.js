@@ -224,7 +224,7 @@ async function persistState(s) {
     // teacher ranks
     for (const r of s.teacherRanks || []) {
       await c.query(
-        'INSERT INTO teacher_ranks (id, department, rank, rate) VALUES (?,?,?,?)',
+        'INSERT INTO teacher_ranks (id, department, `rank`, rate) VALUES (?,?,?,?)',
         [r.id, r.department || 'College', r.rank || '', r.rate || 0]
       );
     }
@@ -503,38 +503,4 @@ async function updatePassword(userId, hashed) {
   });
 }
 
-async function googleSignIn(claims) {
-  const { isSchoolEmail, SCHOOL_DOMAIN } = require('./school-identity');
-  if (!claims.sub || claims.email_verified !== true || claims.hd !== SCHOOL_DOMAIN || !isSchoolEmail(claims.email)) {
-    throw Object.assign(new Error('Only verified @rcc.edu.ph accounts can sign in.'), {status:403});
-  }
-  return withStateLock(async () => {
-    const c = await getPool().getConnection();
-    const email = claims.email.trim().toLowerCase();
-    try {
-      await c.beginTransaction();
-      const [matches] = await c.query('SELECT a.*, u.status AS employeeStatus FROM auth a JOIN users u ON u.id=a.id WHERE a.googleSub=? OR a.email=? FOR UPDATE', [claims.sub,email]);
-      const account = matches[0];
-      let changed = false;
-      if (matches.length > 1 || (account && (account.email.toLowerCase() !== email || (account.googleSub && account.googleSub !== claims.sub)))) {
-        throw Object.assign(new Error('This Google account does not match the linked Payroll account. Contact the System Administrator.'), {status:403});
-      }
-      if (account && (account.status !== 'Active' || account.employeeStatus !== 'Active')) {
-        throw Object.assign(new Error('This account is deactivated. Contact the System Administrator.'), {status:403});
-      }
-      if (!account) {
-        throw Object.assign(new Error('Your account is not registered. Please contact the System Administrator.'), {status:403});
-      }
-      if (!account.googleSub) {
-        await c.query('UPDATE auth SET googleSub=? WHERE id=?',[claims.sub,account.id]);
-        changed = true;
-      }
-      if (changed) await c.query("INSERT INTO app_config (cfg_key,cfg_value) VALUES ('stateRevision','1') ON DUPLICATE KEY UPDATE cfg_value=CAST(cfg_value AS UNSIGNED)+1");
-      await c.commit();
-      return {id:account.id,email:account.email,role:account.role,label:account.label,page:account.page,status:account.status};
-    } catch (error) { await c.rollback(); throw error; }
-    finally { c.release(); }
-  });
-}
-
-module.exports = { assembleState, persistState, status, q, updatePassword, saveClientState, syncHrisData, googleSignIn };
+module.exports = { assembleState, persistState, status, q, updatePassword, saveClientState, syncHrisData };
