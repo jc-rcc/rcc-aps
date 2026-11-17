@@ -110,6 +110,16 @@ async function mergeState(current, submitted, actor) {
     if (!Number.isInteger(record.month) || record.month < 1 || record.month > 12 || !Number.isInteger(record.year) || record.year < 1900 || record.year > 9999) throw httpError('Invalid payroll period.');
     for (const key of ['gross','sss','phil','pag','bir','cash','net']) if (!Number.isFinite(Number(record[key] ?? 0))) throw httpError('Invalid payroll amount.');
     for (const key of ['bonuses','subjectBreakdown','customDeds']) if (record[key] != null && !Array.isArray(record[key])) throw httpError('Invalid payroll breakdown.');
+    for (const entry of record.subjectBreakdown || []) {
+      if (!entry || typeof entry !== 'object') throw httpError('Invalid subject breakdown.');
+      if (!Object.hasOwn(entry,'totalHours')) continue; // Preserve historical quantity-only records.
+      if (entry.type !== 'subject' || entry.quantityUnit !== 'workloads' || !Number.isFinite(entry.totalHours) || entry.totalHours < 0 ||
+          !Number.isFinite(entry.hoursPerWorkload) || entry.hoursPerWorkload <= 0 || entry.hoursPerWorkload > 40 ||
+          !Number.isFinite(entry.qty) || entry.qty < 0 || !Number.isFinite(entry.rate) || entry.rate < 0 || !Number.isFinite(entry.amount)) throw httpError('Invalid High School subject hours.');
+      const workloads = entry.totalHours / entry.hoursPerWorkload;
+      if (Math.abs(entry.qty - workloads) > 1e-9 * Math.max(1,workloads) ||
+          Math.abs(entry.amount - Number((workloads * entry.rate).toFixed(2))) > 1e-8) throw httpError('High School hours and workload amounts do not match.');
+    }
     for (const key of ['salaryBase','absenceWorkDays','absenceDays']) if (record[key] != null && (!Number.isFinite(Number(record[key])) || Number(record[key]) < 0)) throw httpError('Invalid payroll basis.');
     if (record.absenceWorkDays != null && (record.absenceWorkDays < 1 || record.absenceWorkDays > 31)) throw httpError('Invalid absence divisor.');
   }

@@ -416,7 +416,7 @@ function viewPayslipDetail(period, empId) {
   const netPay = parseFloat(rec.net) || 0;
   const dateStr = (rec.date || '').slice(0, 11);
 
-  const qtyLabel = emp.schoolLevel === 'High School' ? 'Workloads' : 'Hours';
+  const qtyLabel = breakdown.some(b => b.quantityUnit === 'workloads') || emp.schoolLevel === 'High School' ? 'Workloads' : 'Hours';
   const otherAmount = otherCustom.reduce((sum, x) => sum + (parseFloat(x.amount) || 0), 0);
   const number = value => Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 4 });
   const blankDeductions = '<td></td>'.repeat(8);
@@ -424,7 +424,8 @@ function viewPayslipDetail(period, empId) {
     '<tr><td class="ps-text">' + esc(label) + '</td><td class="ps-text">' + esc(dept) + '</td><td>' + qty + '</td><td>' + rate + '</td><td>' + fmt(amount) + '</td>' + blankDeductions + '</tr>';
   const subjectRows = breakdown.map(b => earningRow(
     b.type === 'increment' ? 'Increment - S.Y' : (b.subject || 'Subject'),
-    parseFloat(b.amount) || 0, number(b.qty), fmt(parseFloat(b.rate) || 0), b.deptCode || ''
+    parseFloat(b.amount) || 0, number(b.qty) + (b.type !== 'increment' && b.totalHours != null && b.hoursPerWorkload
+      ? '<div style="font-size:9px;color:#666">' + number(b.totalHours) + ' hrs ÷ ' + number(b.hoursPerWorkload) + '</div>' : ''), fmt(parseFloat(b.rate) || 0), b.deptCode || ''
   )).join('');
   const baseRow = subjectRows || earningRow(isTeaching ? (isMonthly ? 'Monthly salary after absences' : 'Teaching earnings') : 'Monthly salary after absences', grossTaxable);
   const customNotes = otherCustom.map(x => esc(x.name || 'Other deduction') + ': ' + fmt(parseFloat(x.amount) || 0)).join(' · ');

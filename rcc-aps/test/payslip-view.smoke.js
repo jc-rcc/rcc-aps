@@ -35,6 +35,15 @@ for (const [role,docId,detailId] of [['Employee','psDoc','payslipDetailPage'],['
       }
     }
     if(thirteenth) assert.match(elements[docId].innerHTML,/P15000\.00/);
+    if(level==='High School') {
+      Object.assign(record.subjectBreakdown[0],{totalHours:5,hoursPerWorkload:3,quantityUnit:'workloads',qty:5/3,rate:1300,amount:2166.67});
+      vm.runInContext(`viewPayslipDetail('${months[month-1]} 2026',3)`,context);
+      assert.match(elements[docId].innerHTML,/5 hrs ÷ 3/);
+      assert.match(elements[docId].innerHTML,/P2166\.67/);
+      context.users[0].schoolLevel='College';
+      vm.runInContext(`viewPayslipDetail('${months[month-1]} 2026',3)`,context);
+      assert.match(elements[docId].innerHTML,/<th>Workloads<\/th>/,'Saved workload units must survive a later employee-level change');
+    }
     assert.equal(alerts.length,0);
     vm.runInContext("viewPayslipDetail('January 2020',3)",context);
     assert.equal(alerts.length,1);
