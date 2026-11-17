@@ -475,6 +475,7 @@ function closeCalcEmpList() {
 }
 
 function resetCalcOutput() {
+  lastCalc = null;
   const res = document.getElementById('calcResult');
   const empty = document.getElementById('calcEmpty');
   const meta = document.getElementById('calcEmpMeta');
@@ -603,6 +604,8 @@ function showCalcTab(group) {
   // (subjects/rates are per level), so they must never leak into the new tab.
   const subjBody = document.getElementById('calcSubjectBody');
   if (subjBody) subjBody.innerHTML = '';
+  const reference = document.getElementById('calcTeachingLoadReference');
+  if (reference) { reference.innerHTML = ''; reference.style.display = 'none'; }
   resetCalcOutput();
   recomputeCalcTotals();
   populateCalcEmployees();
@@ -632,7 +635,18 @@ function syncCalcTabUI() {
   if (workDaysField) workDaysField.style.display = (isNT || isElem) ? '' : 'none';
   if (explRow) explRow.style.display = isExpl ? 'block' : 'none';
   if (rateHdr) rateHdr.textContent = group === 'High School' ? 'Rate per Workload (₱)' : 'Rate per Hour (₱)';
-  if (qtyHdr) qtyHdr.textContent = group === 'High School' ? 'Qty (Workloads)' : 'Qty (Hrs/Month)';
+  if (qtyHdr) qtyHdr.textContent = group === 'High School' ? 'Total Hours' : 'Qty (Hrs/Month)';
+  const workloadHdr = document.getElementById('calcWorkloadHdr');
+  if (workloadHdr) workloadHdr.style.display = group === 'High School' ? '' : 'none';
+  const totalHoursWrap = document.getElementById('calcTotalHoursWrap');
+  if (totalHoursWrap) totalHoursWrap.style.display = group === 'High School' ? '' : 'none';
+  const totalQtyLabel = document.getElementById('calcTotalQtyLabel');
+  if (totalQtyLabel) totalQtyLabel.textContent = group === 'High School' ? 'Total Workloads:' : 'Total Qty:';
+  const hoursHint = document.getElementById('calcSubjectHoursHint');
+  if (hoursHint) {
+    hoursHint.style.display = group === 'High School' ? 'block' : 'none';
+    hoursHint.textContent = 'Finance enters the actual total hours per subject for this payroll period. Workloads = total hours ÷ ' + calcHoursPerWorkload() + '. The Teaching Load reference is kept unchanged.';
+  }
   if (grossWrap) {
     grossWrap.style.display = (isNT || isElem) ? '' : 'none';
     const grossLbl = document.getElementById('calcGrossFieldLabel');
@@ -670,6 +684,46 @@ function syncCalcRankRates() {
   });
 }
 
+function calcHoursPerWorkload() {
+  const value = typeof HOURS_PER_WORKLOAD !== 'undefined' ? Number(HOURS_PER_WORKLOAD) : 3;
+  return Number.isFinite(value) && value > 0 ? value : 3;
+}
+
+function formatCalcQty(value) {
+  return Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 6 });
+}
+
+// Only HS subject rows convert entered hours. Increment quantities and the
+// hourly/monthly payroll groups retain their existing units.
+function calcSubjectNumbers(tr, group) {
+  const isIncrement = tr.dataset.type === 'increment';
+  const highSchoolSubject = group === 'High School' && !isIncrement;
+  const qtyEl = tr.querySelector('.calc-qty');
+  const rateEl = tr.querySelector('.calc-rate');
+  const raw = String(qtyEl ? qtyEl.value : '').trim();
+  const entered = Number(raw);
+  const valid = !highSchoolSubject || (raw !== '' && Number.isFinite(entered) && entered >= 0);
+  const hoursPerWorkload = highSchoolSubject ? calcHoursPerWorkload() : null;
+  const totalHours = highSchoolSubject ? (valid ? entered : 0) : null;
+  const qty = highSchoolSubject ? totalHours / hoursPerWorkload : Math.max(0, parseFloat(raw) || 0);
+  const rate = Math.max(0, parseFloat(rateEl ? rateEl.value : '') || 0);
+  return { qty, rate, amount: Number((qty * rate).toFixed(2)), totalHours, hoursPerWorkload, valid, isIncrement };
+}
+
+function renderCalcTeachingReference(loads) {
+  const reference = document.getElementById('calcTeachingLoadReference');
+  if (!reference) return;
+  if (currentCalcTab !== 'High School' || !loads.length) {
+    reference.innerHTML = ''; reference.style.display = 'none'; return;
+  }
+  reference.style.display = 'block';
+  reference.innerHTML = '<details open><summary style="font-weight:600;margin-bottom:8px">Teaching Load — Reference Copy</summary>' +
+    '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Saved schedule shared by the employee and Finance. Actual payroll hours are entered separately below.</div>' +
+    '<div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th>Subject</th><th>Level</th><th>Dept</th><th>Days</th><th>Time</th><th>Hours/Week</th></tr></thead><tbody>' +
+    loads.map(l => '<tr><td>' + esc(l.subject) + '</td><td>' + esc(l.level) + '</td><td>' + esc(l.deptCode) + '</td><td>' + esc(l.days) + '</td><td>' + esc([l.timeStart,l.timeEnd].filter(Boolean).join(' – ')) + '</td><td>' + formatCalcQty(l.hoursPerWeek) + '</td></tr>').join('') +
+    '</tbody></table></div></details>';
+}
+
 // Add a subject row to the EXPLANATION editor. Rate is auto-filled from
 // teacherRate(emp) when known; qty is left at 0 for Finance to encode.
 function addCalcSubject(prefill) {
@@ -677,12 +731,16 @@ function addCalcSubject(prefill) {
   if (!tbody) return;
   const tr = document.createElement('tr');
   tr.dataset.type = 'subject';
+  const highSchool = currentCalcTab === 'High School';
+  const referenceOnly = highSchool && prefill && prefill.fromTeachingLoad;
+  const readOnly = referenceOnly ? ' readonly' : '';
   tr.innerHTML =
-    '<td style="padding:4px 4px"><input class="fi" style="width:100%;padding:4px 6px" placeholder="Subject" value="' + esc((prefill && prefill.subject) || '') + '" oninput="recomputeCalcTotals();computePayroll()"/></td>' +
-    '<td style="padding:4px 4px"><select class="fi calc-level-sel" style="width:104px;padding:4px 6px" title="For College / For Grad — tag which level this subject is for" onchange="onCalcSubjectLevel(this)">' + calcLevelOpts((prefill && prefill.level) || '') + '</select></td>' +
-    '<td style="padding:4px 4px"><input class="fi calc-dept" style="width:90px;padding:4px 6px" aria-label="Subject department" placeholder="e.g. CCS" value="' + esc((prefill && prefill.deptCode) || '') + '" oninput="computePayroll()"/></td>' +
-    '<td style="padding:4px 4px"><input class="fi calc-days" style="width:90px;padding:4px 6px" placeholder="e.g. MWF" title="Schedule days" value="' + esc((prefill && prefill.days) || '') + '" oninput="recomputeCalcTotals();computePayroll()"/></td>' +
+    '<td style="padding:4px 4px"><input class="fi" style="width:100%;padding:4px 6px" placeholder="Subject" value="' + esc((prefill && prefill.subject) || '') + '"' + readOnly + ' oninput="recomputeCalcTotals();computePayroll()"/></td>' +
+    '<td style="padding:4px 4px"><select class="fi calc-level-sel" style="width:104px;padding:4px 6px" title="Subject level"' + (referenceOnly ? ' disabled' : '') + ' onchange="onCalcSubjectLevel(this)">' + calcLevelOpts((prefill && prefill.level) || '') + '</select></td>' +
+    '<td style="padding:4px 4px"><input class="fi calc-dept" style="width:90px;padding:4px 6px" aria-label="Subject department" placeholder="e.g. CCS" value="' + esc((prefill && prefill.deptCode) || '') + '"' + readOnly + ' oninput="computePayroll()"/></td>' +
+    '<td style="padding:4px 4px"><input class="fi calc-days" style="width:90px;padding:4px 6px" placeholder="e.g. MWF" title="Schedule days" value="' + esc((prefill && prefill.days) || '') + '"' + readOnly + ' oninput="recomputeCalcTotals();computePayroll()"/></td>' +
     '<td style="padding:4px 4px"><input class="fi calc-qty" style="width:100px;padding:4px 6px" type="number" step="any" min="0" placeholder="0" value="' + ((prefill && prefill.qty != null) ? prefill.qty : 0) + '" oninput="recomputeCalcTotals();computePayroll()"/></td>' +
+    '<td class="calc-workload-cell" style="padding:4px 4px;display:' + (highSchool ? 'table-cell' : 'none') + '"><output class="calc-workloads" aria-label="Calculated workloads">0</output></td>' +
     '<td style="padding:4px 4px"><input class="fi calc-rate" style="width:90px;padding:4px 6px" type="number" step="0.01" min="0" placeholder="0" value="' + ((prefill && prefill.rate != null) ? prefill.rate : '') + '" oninput="recomputeCalcTotals();computePayroll()"/></td>' +
     '<td style="padding:4px 4px;font-weight:600" class="calc-amt">0.00</td>' +
     '<td style="padding:4px 4px"><button type="button" class="btn btn-outline btn-sm" title="Remove subject" onclick="this.closest(\'tr\').remove();recomputeCalcTotals();computePayroll()">✕</button></td>';
@@ -699,6 +757,7 @@ function addCalcIncrement() {
   tr.innerHTML =
     '<td colspan="4" style="padding:4px 4px;font-weight:600">Increment - S.Y</td>' +
     '<td style="padding:4px 4px"><input class="fi calc-qty" style="width:70px;padding:4px 6px" type="number" step="0.5" min="0" placeholder="0" oninput="recomputeCalcTotals();computePayroll()"/></td>' +
+    '<td class="calc-workload-cell" style="padding:4px 4px;display:' + (currentCalcTab === 'High School' ? 'table-cell' : 'none') + '">—</td>' +
     '<td style="padding:4px 4px"><input class="fi calc-rate" style="width:90px;padding:4px 6px" type="number" step="0.01" min="0" placeholder="0" oninput="recomputeCalcTotals();computePayroll()"/></td>' +
     '<td style="padding:4px 4px;font-weight:600" class="calc-amt">0.00</td>' +
     '<td style="padding:4px 4px"><button type="button" class="btn btn-outline btn-sm" title="Remove increment" onclick="this.closest(\'tr\').remove();recomputeCalcTotals();computePayroll()">✕</button></td>';
@@ -711,22 +770,27 @@ function recomputeCalcTotals() {
   syncCalcRankRates();
   const tbody = document.getElementById('calcSubjectBody');
   if (!tbody) return;
-  let totalQty = 0, gross = 0;
+  let totalQty = 0, totalHours = 0, gross = 0, valid = true;
   tbody.querySelectorAll('tr').forEach(tr => {
-    const qtyEl = tr.querySelector('.calc-qty');
-    const rateEl = tr.querySelector('.calc-rate');
-    const qty = Math.max(0, parseFloat(qtyEl ? qtyEl.value : '') || 0);
-    const rate = Math.max(0, parseFloat(rateEl ? rateEl.value : '') || 0);
-    const amt = parseFloat((qty * rate).toFixed(2));
-    totalQty += qty;
-    gross += amt;
+    const values = calcSubjectNumbers(tr, currentCalcTab);
+    valid = valid && values.valid;
+    if (currentCalcTab !== 'High School' || !values.isIncrement) totalQty += values.qty;
+    totalHours += values.totalHours || 0;
+    gross += values.amount;
+    const workloads = tr.querySelector('.calc-workloads');
+    if (workloads) workloads.textContent = values.valid ? formatCalcQty(values.qty) : '—';
     const amtCell = tr.querySelector('.calc-amt');
-    if (amtCell) amtCell.textContent = amt.toFixed(2);
+    if (amtCell) amtCell.textContent = values.amount.toFixed(2);
   });
   const tq = document.getElementById('calcTotalQty');
   const sg = document.getElementById('calcSubjGross');
-  if (tq) tq.textContent = totalQty;
+  if (tq) tq.textContent = formatCalcQty(totalQty);
   if (sg) sg.textContent = gross.toFixed(2);
+  const th = document.getElementById('calcTotalHours');
+  if (th) th.textContent = formatCalcQty(totalHours);
+  const error = document.getElementById('calcSubjectHoursErr');
+  if (error) error.style.display = valid ? 'none' : 'block';
+  return { valid, totalQty, totalHours, gross };
 }
 
 // Latest teaching load rows from the Teaching Load module (most recent
@@ -773,9 +837,11 @@ function latestTeachingLoads(empId, semester, schoolYear, month, year) {
       deptCode: c.deptCode || '',
       level: c.level || '',
       days: c.days || '',
+      timeStart: c.timeStart || '', timeEnd: c.timeEnd || '',
+      hoursPerWeek: Number(c.hoursPerWeek) || 0,
       // Normalize floating-point noise without rounding to half-hour steps.
       qty: Number(hours.toPrecision(15)),
-      // Workloads per month — what Finance encodes on the High School tab.
+      // Reference estimate only; High School payroll hours are entered by Finance.
       wlQty: Number((hours / hpw).toPrecision(15))
     }; });
 }
@@ -850,9 +916,8 @@ function loadEmployeeData() {
   if (isExplTab) {
     // High School / College + Graduate: pre-fill the EXPLANATION
     // editor from the employee's selected Teaching Load term. Subject and
-    // days come from the load schedule; qty is hrs/month for College/Grad
-    // but workloads/month for High School; rate is auto-filled from the
-    // rank table (per hour / per workload respectively).
+    // days come from the load schedule. College/Grad retain their monthly
+    // schedule prefill; HS starts with blank actual hours for Finance.
     const tbody = document.getElementById('calcSubjectBody');
     if (tbody) tbody.innerHTML = '';
     syncCalcTeachingYears(emp.id);
@@ -861,11 +926,12 @@ function loadEmployeeData() {
     const loads = latestTeachingLoads(emp.id, semester, schoolYear, monthNum, year);
     const termStatus = document.getElementById('calcTeachingTermStatus');
     if (termStatus) termStatus.textContent = loads.length
-      ? 'Loaded ' + loads.length + ' subject(s) from Teaching Load · ' + (semester === 'Summer' ? 'Summer' : semester + ' Sem') + ' · SY ' + schoolYear + '. Hours follow scheduled class dates for the full month of ' + period + '.'
+      ? 'Loaded ' + loads.length + ' subject(s) from Teaching Load · ' + (semester === 'Summer' ? 'Summer' : semester + ' Sem') + ' · SY ' + schoolYear + (group === 'High School' ? '. Reference copy only. Enter actual total hours per subject for ' + period + '.' : '. Hours follow scheduled class dates for the full month of ' + period + '.')
       : 'No saved Teaching Load subjects for this employee in the selected semester and school year.';
+    renderCalcTeachingReference(loads);
     const rate = teacherRate(emp);
     loads.forEach(l => {
-      addCalcSubject({ subject: l.subject || '', level: l.level || '', deptCode: l.deptCode || '', days: l.days || '', qty: (group === 'High School' ? l.wlQty : l.qty) || 0, rate });
+      addCalcSubject({ subject: l.subject || '', level: l.level || '', deptCode: l.deptCode || '', days: l.days || '', qty: group === 'High School' ? '' : (l.qty || 0), rate, fromTeachingLoad: true });
     });
     salEl.value = rate || '';
     attEl.value = '';
@@ -1052,7 +1118,7 @@ function computePayroll() {
   const id = parseInt(document.getElementById('calcEmp').value);
   const emp = users.find(u=>u.id===id);
   if (!emp) return;
-  recomputeCalcTotals();
+  const subjectTotals = recomputeCalcTotals();
   const isTeaching = emp.classification === 'Teaching';
   const rateEl = document.getElementById('calcSalary');
   const attEl = document.getElementById('calcAtt');
@@ -1066,6 +1132,11 @@ function computePayroll() {
   let subjectBreakdown = null;
   const group = currentCalcTab;
   const isExplTab = group === 'High School' || group === 'College / Graduate';
+  if (group === 'High School' && subjectTotals && !subjectTotals.valid) {
+    lastCalc = null;
+    document.getElementById('calcResult').style.display = 'none';
+    return;
+  }
   const workDays = isExplTab ? null : calcAbsenceWorkDays();
   const workDaysError = document.getElementById('calcWorkDaysErr');
   if (workDaysError) workDaysError.style.display = !isExplTab && !workDays ? 'block' : 'none';
@@ -1077,19 +1148,15 @@ function computePayroll() {
   document.getElementById('calcResult').style.display = 'block';
   if (isExplTab) {
     // Gross comes from the EXPLANATION editor rows.
-    // High School: qty IS workloads (hrs/month ÷ HOURS_PER_WORKLOAD at
-    // prefill time), paid at the rank table's per-workload rate — qty × rate.
+    // High School: actual subject hours ÷ hours per workload × rank rate.
     // College / Graduate: paid at teacherRate per hour.
     const R = teacherRate(emp);
     subjectBreakdown = [];
-    let totalQty = 0, subjGross = 0;
+    let totalQty = 0, totalHours = 0, incrementGross = 0, subjGross = 0;
     document.querySelectorAll('#calcSubjectBody tr').forEach(tr => {
-      const qtyEl = tr.querySelector('.calc-qty');
-      const rateEl = tr.querySelector('.calc-rate');
-      const qty = Math.max(0, parseFloat(qtyEl ? qtyEl.value : '') || 0);
-      const typedRate = parseFloat(rateEl ? rateEl.value : '');
-      const rate = isNaN(typedRate) ? 0 : typedRate;
-      const isIncr = tr.dataset.type === 'increment';
+      const values = calcSubjectNumbers(tr, group);
+      const { qty, rate, amount } = values;
+      const isIncr = values.isIncrement;
       const nameEl = tr.querySelector('input');
       const daysEl = tr.querySelector('.calc-days');
       const deptEl = tr.querySelector('.calc-dept');
@@ -1098,15 +1165,18 @@ function computePayroll() {
       const days = isIncr ? '' : (daysEl ? daysEl.value : '');
       const level = lvEl ? (lvEl.value || '') : '';
       const deptCode = isIncr ? '' : (deptEl ? deptEl.value.trim() : '');
-      const amount = parseFloat((qty * rate).toFixed(2));
-      subjectBreakdown.push({ type: isIncr ? 'increment' : 'subject', subject, days, level, deptCode, qty, rate, amount });
+      const entry = { type: isIncr ? 'increment' : 'subject', subject, days, level, deptCode, qty, rate, amount };
+      if (group === 'High School' && !isIncr) Object.assign(entry, { totalHours: values.totalHours, hoursPerWorkload: values.hoursPerWorkload, quantityUnit: 'workloads' });
+      subjectBreakdown.push(entry);
       subjGross += amount;
-      totalQty += qty;
+      if (group !== 'High School' || !isIncr) totalQty += qty;
+      totalHours += values.totalHours || 0;
+      if (isIncr) incrementGross += amount;
     });
     gross = parseFloat(subjGross.toFixed(2));
     const Rfmt = R.toLocaleString('en-PH',{minimumFractionDigits:2});
     meta = group === 'High School'
-      ? `${totalQty} workload(s) × ₱${Rfmt} = ${fmt(gross)}`
+      ? `${formatCalcQty(totalHours)} hrs ÷ ${calcHoursPerWorkload()} = ${formatCalcQty(totalQty)} workload(s) × ₱${Rfmt}${incrementGross ? ' + increments ' + fmt(incrementGross) : ''} = ${fmt(gross)}`
       : `${totalQty} hrs × ₱${Rfmt} = ${fmt(gross)}`;
   } else if (isTeaching) {
     // Elementary: use the divisor entered for this payroll computation.
@@ -1176,7 +1246,7 @@ function computePayroll() {
       const lvlTag = (!isIncr && b.level) ? ' <span style="display:inline-block;padding:1px 7px;border-radius:10px;background:var(--gold-pale);color:var(--maroon-dark);font-size:11px;font-weight:700;border:1px solid var(--gold)">' + esc(b.level) + '</span>' : '';
       const label = (isIncr ? '📈 Increment - S.Y' : '📚 ' + esc(b.subject || '')) + lvlTag;
       const qtyLabel = (group === 'High School' && !isIncr)
-        ? b.qty + ' workload(s)' + (b.days ? ' · ' + esc(b.days) : '')
+        ? formatCalcQty(b.totalHours) + ' hrs ÷ ' + b.hoursPerWorkload + ' = ' + formatCalcQty(b.qty) + ' workload(s)' + (b.days ? ' · ' + esc(b.days) : '')
         : b.qty + ' hrs' + (b.days && !isIncr ? ' · ' + esc(b.days) : '');
       earningsHtml += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F5F0EA;font-size:13.5px"><span style="color:var(--text-muted)">' + label + ' — ' + qtyLabel + ' × ' + fmt(b.rate) + '</span><span style="font-weight:600">+' + fmt(b.amount) + '</span></div>';
     });
@@ -1275,26 +1345,34 @@ function renderPayrollSummary() {
   if (loadTh) loadTh.textContent = 'Load / Salary';
   tbody.innerHTML = emps.map(emp => {
     const base = empGrossPay(emp);
+    const rec = payrollRecords.find(r=>r.empId===emp.id && r.month===monthNum && r.year===year);
+    const releasedHS = rec && emp.classification === 'Teaching' && emp.schoolLevel === 'High School';
     // Per-level load column: Workloads (HS), Hours (College/Grad), Monthly (Elementary), Salary (NT)
     let loadValue;
     if (emp.classification !== 'Teaching') loadValue = fmt(base);
     else if (emp.schoolLevel === 'Elementary') loadValue = fmt(base) + '/mo';
-    else if (emp.schoolLevel === 'High School') loadValue = ((emp.hoursWorked || 0) / HOURS_PER_WORKLOAD) + ' wl';
+    else if (emp.schoolLevel === 'High School') loadValue = releasedHS && Array.isArray(rec.subjectBreakdown) && rec.subjectBreakdown.length
+      ? formatCalcQty(rec.subjectBreakdown.filter(b=>b.type!=='increment').reduce((sum,b)=>sum+(Number(b.qty)||0),0)) + ' wl'
+      : ((emp.hoursWorked || 0) / HOURS_PER_WORKLOAD) + ' wl';
     else loadValue = (emp.hoursWorked || 0) + ' hrs';
     const typeLabel = emp.classification === 'Teaching' ? (emp.schoolLevel || 'Teaching') : 'Non-Teaching';
-    const bonuses = activeBonusTypes(emp, base, periodEndDate(period));
-    const { deMinimisSum, taxableSum } = splitBonuses(bonuses);
-    const gross = base + taxableSum;
-    const thirteenth = isDec && isThirteenthActive() && thirteenthEligibility(emp, year).eligible ? computeThirteenth(emp, year) : 0;
+    const bonuses = releasedHS && Array.isArray(rec.bonuses) ? rec.bonuses : activeBonusTypes(emp, base, periodEndDate(period));
+    const bonusSplit = splitBonuses(bonuses);
+    const deMinimisSum = releasedHS ? Number(rec.deMinimisSum)||0 : bonusSplit.deMinimisSum;
+    const taxableSum = bonusSplit.taxableSum;
+    const gross = releasedHS ? Number(rec.gross)||0 : base + taxableSum;
+    const thirteenth = releasedHS ? Number(rec.thirteenth)||0 : (isDec && isThirteenthActive() && thirteenthEligibility(emp, year).eligible ? computeThirteenth(emp, year) : 0);
     const taxable13 = splitBonusTaxable(thirteenth, taxableSum).taxable13;
-    const d = computeDeductions(gross, getEmpCashAdvance(emp.id), 0);
-    const tTax = thirteenthTaxSplit(d, gross, taxable13);
-    const rec = payrollRecords.find(r=>r.empId===emp.id && r.month===monthNum && r.year===year);
+    const d = releasedHS ? {
+      sss:Number(rec.sss)||0,phil:Number(rec.phil)||0,pag:Number(rec.pag)||0,bir:Number(rec.bir)||0,cash:Number(rec.cash)||0,
+      custom:Array.isArray(rec.customDeds)?rec.customDeds:[],customTotal:(rec.customDeds||[]).reduce((sum,item)=>sum+(Number(item.amount)||0),0)
+    } : computeDeductions(gross, getEmpCashAdvance(emp.id), 0);
+    const tTax = releasedHS ? {annualTax:Number(rec.thirteenTax)||0} : thirteenthTaxSplit(d, gross, taxable13);
     const status = rec
       ? `<span class="badge b-green">✓ Released ${rec.date}</span>`
       : '<span class="badge b-yellow">Pending</span>';
     const grossTotal = gross + deMinimisSum + thirteenth;
-    const net = d.net + deMinimisSum + thirteenth - tTax.annualTax;
+    const net = releasedHS ? Number(rec.net)||0 : d.net + deMinimisSum + thirteenth - tTax.annualTax;
     const thirteenCell = tTax.annualTax > 0
       ? `<span style="color:#C62828;font-weight:600" title="13th Month Excess Tax — withheld from the 13th Month Pay">${fmt(tTax.annualTax)}</span>`
       : '<span style="color:#BBB">—</span>';

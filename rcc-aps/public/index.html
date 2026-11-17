@@ -628,6 +628,7 @@
                 </div>
               </div>
               <div id="calcTeachingTermStatus" role="status" style="font-size:12px;color:var(--text-muted);margin-bottom:12px"></div>
+              <div id="calcTeachingLoadReference" style="display:none;margin-bottom:16px"></div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
                 <div style="font-size:13px;font-weight:700;color:var(--maroon)">📝 Explanation — Subjects &amp; Hours Rendered</div>
                 <div style="display:flex;gap:8px">
@@ -635,6 +636,8 @@
                   <button class="btn btn-outline btn-sm" onclick="addCalcIncrement()">+ Add Increment</button>
                 </div>
               </div>
+              <div id="calcSubjectHoursHint" style="display:none;font-size:12px;color:var(--text-muted);margin-bottom:8px"></div>
+              <div id="calcSubjectHoursErr" role="alert" style="display:none;font-size:12px;color:#B71C1C;margin-bottom:8px">Enter valid total hours (0 or more) for every subject before computing payroll.</div>
               <div style="overflow-x:auto">
                 <table style="width:100%;border-collapse:collapse;font-size:12px">
                   <thead><tr style="background:var(--maroon-dark);color:#fff">
@@ -643,6 +646,7 @@
                     <th style="padding:8px 6px;text-align:left">Dept</th>
                     <th style="padding:8px 6px;text-align:left">Schedule Days</th>
                     <th style="padding:8px 6px;text-align:left" id="calcQtyHdr">Qty (Hrs/Month)</th>
+                    <th style="padding:8px 6px;text-align:left;display:none" id="calcWorkloadHdr">Workloads (Auto)</th>
                     <th style="padding:8px 6px;text-align:left" id="calcRateHdr">Rate (₱)</th>
                     <th style="padding:8px 6px;text-align:left">Amount (₱)</th>
                     <th style="padding:8px 6px;width:40px"></th>
@@ -651,7 +655,8 @@
                 </table>
               </div>
               <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
-                <span style="font-size:13px;font-weight:600;color:var(--maroon-dark)">Total Qty: <span id="calcTotalQty">0</span></span>
+                <span id="calcTotalHoursWrap" style="display:none;font-size:13px;font-weight:600;color:var(--maroon-dark)">Total Hours: <span id="calcTotalHours">0</span></span>
+                <span style="font-size:13px;font-weight:600;color:var(--maroon-dark)"><span id="calcTotalQtyLabel">Total Qty:</span> <span id="calcTotalQty">0</span></span>
                 <span style="font-size:13px;font-weight:600;color:var(--maroon-dark)">Gross from Subjects: ₱<span id="calcSubjGross">0.00</span></span>
                 <span style="font-size:12px;color:var(--text-muted)">Pay Note:</span>
                 <input class="fi" style="flex:1;min-width:200px;padding:6px 10px" id="calcPayNote" placeholder="e.g. Absent - Nov 4 - Applied ELC"/>
