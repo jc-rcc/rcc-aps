@@ -83,6 +83,7 @@ async function pushToServer(state) {
     if (result.state) {
       localStorage.setItem(DEMO_KEY,JSON.stringify(result.state));
       applyServerData(result.state);
+      refreshVisiblePage();
     }
     return true;
   } catch (error) {
@@ -107,11 +108,11 @@ async function syncDemo() {
 }
 function refreshVisiblePage() {
   if (!(typeof loggedInUser !== 'undefined' && loggedInUser && loggedInUser.page)) return;
-  if (typeof initPage !== 'function') return;
+  if (typeof refreshPageData !== 'function') return;
   const el = document.getElementById(loggedInUser.page);
-  if (el && el.classList.contains('show')) initPage(loggedInUser.page);
+  if (el && el.classList.contains('show')) refreshPageData(loggedInUser.page);
 }
-document.addEventListener('DOMContentLoaded', syncDemo);
+// Session restoration starts in auth.js after all application scripts have loaded.
 
 const ROLE_PAGE = {'System Admin':'adminPage','Finance Officer':'financePage','Employee':'empPage'};
 const ROLE_ICON = {'System Admin':'🔧','Finance Officer':'💼','Employee':'👤'};

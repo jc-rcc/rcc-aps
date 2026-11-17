@@ -3,11 +3,13 @@ const storage=new Map();const messages=[];
 const base={users:[{id:3,first:'Employee',last:'Test',email:'employee@test.local',role:'Employee',status:'Active'}],profiles:{3:{photo:'data:image/jpeg;base64,AQID'}},auth:{},stateRevision:7,payrollRecords:[],cashAdvances:{},bonusTypes:[],bonusPayouts:{},leaveTypes:[],leaveRecords:[],attendance:[],teacherRanks:[],teachingLoadRecords:[],teachingLoadClasses:[],deductionCategories:[],sssTable:[],birData:[],philData:{},pagData:{},workDays:22,hoursPerWorkload:3,nextUserId:4,nextBonusId:1,nextDedCatId:1,nextLeaveTypeId:1,nextLeaveRecordId:1,nextRankId:1,nextTeachingLoadId:1,nextTeachingLoadClassId:1};
 storage.set('rcc_aps_demo_v1',JSON.stringify({...base,users:[{id:1,salary:99999},{id:3}],auth:{1:{pass:'legacy-secret'}},savedAt:'2099-01-01'}));
 let posted,failConflict=false;
-const ctx=vm.createContext({console,loggedInUser:{id:3,role:'employee'},document:{addEventListener(){},getElementById(){return null;}},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},getAuthToken:()=> 'test-token',clearAuthToken(){},showToast:(...message)=>messages.push(message),fetch:async(url,options)=>{
+const renders=[];
+const elements={empPhone:null,empAddr:null,adminPage:{classList:{contains:()=>true}},financePage:{classList:{contains:()=>true}},admUsers:{style:{display:'block'}},finRanks:{style:{display:'none'}},finPayroll:{style:{display:'none'}},payPeriod:{value:'October 2026'},calcEmp:{value:'3'},calcHours:{value:'13'}};
+const ctx=vm.createContext({console,loggedInUser:{id:3,role:'admin',page:'adminPage'},document:{addEventListener(){},getElementById:id=>elements[id]||null},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},getAuthToken:()=> 'test-token',clearAuthToken(){},showToast:(...message)=>messages.push(message),fetch:async(url,options)=>{
  if(options.method==='POST'){
   posted=JSON.parse(options.body);
   if(failConflict)return {ok:false,status:409,json:async()=>({error:'Records changed. Reload.'})};
-  return {ok:true,status:200,json:async()=>({state:{...base,stateRevision:8,profiles:posted.profiles}})};
+  return {ok:true,status:200,json:async()=>({state:{...base,stateRevision:8,profiles:posted.profiles,users:base.users.map(u=>({...u,first:'Server saved name'}))}})};
  }
  return {ok:true,status:200,json:async()=>structuredClone(base)};
 },structuredClone});
@@ -17,13 +19,22 @@ for(const name of ['nextUserId','nextBonusId','nextDedCatId','NEXT_LEAVE_TYPE_ID
 ctx.WORK_DAYS=22;ctx.HOURS_PER_WORKLOAD=3;ctx.BONUS_EXEMPTION_LIMIT=90000;
 const payroll=fs.readFileSync(__dirname+'/../public/js/payroll.js','utf8');
 vm.runInContext(payroll.match(/function applyServerData[\s\S]*?\n}/)[0],ctx);
+const auth=fs.readFileSync(__dirname+'/../public/js/auth.js','utf8');
+vm.runInContext(auth.match(/function refreshPageData[\s\S]*?\n}/)[0],ctx);
+for(const name of ['renderIdentity','updateAdminStats','renderAdminRecentUsers','renderUserTable','renderAdmDedTables','renderAdmRankTable','renderAdmPayslipList','updateFinStats','renderFinRecentActivity','renderAnalytics','renderBonusModule','renderPayrollSummary','renderDeductionCategories','renderLeaveTypes','renderLeaveRecords','renderDedBanner','renderWorkDaysSetting','renderRankTable','renderFinTeachingLoads','renderFormulaManagement','renderFinPayslipList','renderSSSTable','renderPhilHealthDisplay','renderPagIBIGDisplay','renderBIRTable'])ctx[name]=()=>renders.push([name,ctx.users[0]?.first]);
+ctx.initPage=()=>{throw Error('Saving must not reinitialize inputs');};
+ctx.teacherRanks=[{id:99,rank:'Stale'}];
 (async()=>{
  assert.equal(await vm.runInContext('syncDemo()',ctx),true);
- assert.deepEqual(ctx.users.map(user=>user.id),[3]);assert.equal(posted,undefined,'Local future timestamps must never overwrite server data');
+ assert.deepEqual(ctx.users.map(user=>user.id),[3]);assert.equal(ctx.teacherRanks.length,0,'Empty server collections clear stale ranks');renders.length=0;assert.equal(posted,undefined,'Local future timestamps must never overwrite server data');
  vm.runInContext("ensureAuth(users[0],'pending-secret'); PROFILES[3].empPhone='0917'",ctx);
  assert.equal(await vm.runInContext('saveDemo()',ctx),true);
  assert.equal(posted.stateRevision,7);assert.equal(posted.auth.u3.pass,'pending-secret');
+ assert.ok(renders.some(([fn,name])=>fn==='renderUserTable'&&name==='Server saved name'),'Successful save must render canonical server data immediately');
+ assert.equal(elements.payPeriod.value,'October 2026');assert.equal(elements.calcHours.value,'13');
+ ctx.loggedInUser={id:3,role:'finance',page:'financePage'};elements.finRanks.style.display='block';renders.length=0;assert.equal(await vm.runInContext('saveDemo()',ctx),true);assert.ok(renders.some(([fn])=>fn==='renderRankTable'),'Active Finance screen refreshes after save');assert.equal(elements.calcEmp.value,'3');assert.equal(elements.payPeriod.value,'October 2026');assert.equal(elements.calcHours.value,'13');
+ assert.equal(posted.stateRevision,8);assert.deepEqual(posted.auth,{});
  const cached=JSON.parse(storage.get('rcc_aps_demo_v1'));assert.deepEqual(cached.auth,{});assert.equal(cached.stateRevision,8);assert.equal(cached.profiles[3].photo,'data:image/jpeg;base64,AQID');
  failConflict=true;assert.equal(await vm.runInContext('saveDemo()',ctx),false);assert.match(messages.at(-1)[1],/Records changed/);
- console.log('PASS: server-scoped login hydration, stale cache cannot upload itself, revisions sent/updated, credentials excluded from cache, photos preserved and conflicts surfaced.');
+ console.log('PASS: server-scoped hydration, immediate canonical save rendering for Admin/Finance, preserved calculator inputs, empty collection refresh, revisions, credential-free cache, photos, and conflict recovery.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
