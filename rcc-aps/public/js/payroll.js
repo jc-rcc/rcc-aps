@@ -31,7 +31,7 @@ let LEAVE_TYPES = (_savedDemo && _savedDemo.leaveTypes) || [
 ];
 let NEXT_LEAVE_TYPE_ID = (_savedDemo && _savedDemo.nextLeaveTypeId) || 6;
 let LEAVE_RECORDS = (_savedDemo && _savedDemo.leaveRecords) || [];
-// Per-day clock-in/out imported from HRIS. Matched to a local user by email.
+// Historical attendance retained for compatibility; clock import and payroll detection are disabled.
 // Record shape: { empId, employeeId, date (YYYY-MM-DD local), clockInAt, clockOutAt, hours }
 let ATTENDANCE = (_savedDemo && _savedDemo.attendance) || [];
 
@@ -76,25 +76,12 @@ function getUnpaidDays(empId, monthNum, year) {
   return totalUnpaidDays;
 }
 
-// ── ATTENDANCE HELPERS ────────────────────────────────────────
+// ── LEAVE HELPERS ────────────────────────────────────────
 const HOURS_PER_DAY = 8; // payroll policy: 1 absent/unpaid day = 8 hours
 
-// Exact Mon-Fri calendar days of a month (matches WORK_DAYS=22 for a standard month).
-function getPeriodWorkingDays(monthNum, year) {
-  const days = [];
-  const last = new Date(year, monthNum, 0).getDate();
-  for (let d = 1; d <= last; d++) {
-    const dow = new Date(year, monthNum - 1, d).getDay();
-    if (dow >= 1 && dow <= 5) days.push(d);
-  }
-  return days;
-}
-
-// True when an employee has any attendance or leave record in a given month, so
-// "no data" periods are not misread as a full month of unexplained absences.
+// Leave records alone provide automatic unpaid-day inputs; historical clocks do not.
 function periodHasData(empId, monthNum, year) {
   const p = String(year) + '-' + String(monthNum).padStart(2, '0');
-  if (ATTENDANCE.some(r => r.empId === empId && String(r.date).indexOf(p) === 0)) return true;
   if (LEAVE_RECORDS.some(r => r.empId === empId && String(r.startDate).indexOf(p) === 0)) return true;
   return false;
 }
@@ -164,70 +151,10 @@ function setDefaultPayPeriod(now = new Date()) {
   return true;
 }
 
-// Hours worked in a period = sum of (clockOut - clockIn), +24h if graveyard
-// (clockOut < clockIn). Dates are matched by the stored 'date' field.
-function getAttendanceHours(empId, monthNum, year) {
-  const recs = ATTENDANCE.filter(r =>
-    r.empId === empId &&
-    parseInt(String(r.date).slice(0, 4), 10) === year &&
-    parseInt(String(r.date).slice(5, 7), 10) === monthNum
-  );
-  return recs.reduce((sum, r) => sum + (parseFloat(r.hours) || 0), 0);
-}
-
-// PHP icon hours for a clockIn/clockOut (returns the day's hours, computing if needed).
-function attendanceRecordHours(r) {
-  if (r.hours != null) return parseFloat(r.hours) || 0;
-  const a = new Date(r.clockInAt).getTime();
-  const b = new Date(r.clockOutAt).getTime();
-  if (isNaN(a) || isNaN(b)) return 0;
-  let diff = (b - a) / 3600000;
-  if (diff < 0) diff += 24; // graveyard shift
-  return Math.max(0, Math.round(diff * 100) / 100);
-}
-
-// Set of dates (YYYY-MM-DD) with an attendance record for an employee.
-function getAttendanceDaySet(empId) {
-  const s = new Set();
-  ATTENDANCE.forEach(r => { if (r.empId === empId && r.date) s.add(r.date); });
-  return s;
-}
-
-// Set of dates covered by ANY leave record for the employee in the period.
-// Uses the leave's stored days / start/end to build a day set.
-function getLeaveCoveredDaySet(empId, monthNum, year) {
-  const s = new Set();
-  LEAVE_RECORDS.filter(r => r.empId === empId).forEach(rec => {
-    const start = new Date(rec.startDate + 'T00:00:00');
-    const end = new Date(rec.endDate + 'T00:00:00');
-    const days = rec.days || Math.floor((end - start) / 86400000) + 1;
-    for (let i = 0; i < days; i++) {
-      const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-      if ((day.getMonth() + 1) === monthNum && day.getFullYear() === year) {
-        s.add(day.getFullYear() + '-' + String(day.getMonth() + 1).padStart(2, '0') + '-' + String(day.getDate()).padStart(2, '0'));
-      }
-    }
-  });
-  return s;
-}
-
-// Absent days = working days with no clock-in record AND no approved leave.
-function getDetectedAbsences(empId, monthNum, year) {
-  const attDays = getAttendanceDaySet(empId);
-  const leaveDays = getLeaveCoveredDaySet(empId, monthNum, year);
-  const workingDays = getPeriodWorkingDays(monthNum, year);
-  let count = 0;
-  workingDays.forEach(d => {
-    const key = year + '-' + String(monthNum).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-    if (!attDays.has(key) && !leaveDays.has(key)) count++;
-  });
-  return count;
-}
-
-// Total unpaid days for the payroll = unpaid leave days + detected absences.
+// Only recorded unpaid leave contributes automatic unpaid days.
 function getTotalUnpaidDaysAll(empId, monthNum, year) {
   const { totalUnpaidDays } = getLeaveBreakdown(empId, monthNum, year);
-  return totalUnpaidDays + getDetectedAbsences(empId, monthNum, year);
+  return totalUnpaidDays;
 }
 
 // ── PAYROLL RECORDS (per employee per month) ─────────────────
@@ -967,12 +894,11 @@ function renderLeaveBreakdown(empId) {
   const monthNum = MONTHS.indexOf(monthName) + 1;
   
   const { breakdown, totalPaidDays, totalUnpaidDays } = getLeaveBreakdown(empId, monthNum, year);
-  const absentDays = getDetectedAbsences(empId, monthNum, year);
-  const totalDly = totalUnpaidDays + absentDays;
+  const totalDly = totalUnpaidDays;
 
   if (!periodHasData(empId, monthNum, year)) {
     container.style.display = 'block';
-    container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:4px 8px">📅 No attendance or leave records for ' + esc(monthName) + ' ' + year + '.</div>';
+    container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:4px 8px">📅 No leave records for ' + esc(monthName) + ' ' + year + '.</div>';
     return;
   }
 
@@ -995,7 +921,7 @@ function renderLeaveBreakdown(empId) {
     : ((parseFloat(emp.salary) || 0) / WORK_DAYS);
   const totalDeduction = totalDly * dayValue;
 
-  let html = '<div style="font-size:12px;font-weight:700;color:var(--maroon-dark);margin-bottom:8px">📅 LEAVE &amp; ATTENDANCE — ' + monthName + ' ' + year + '</div>';
+  let html = '<div style="font-size:12px;font-weight:700;color:var(--maroon-dark);margin-bottom:8px">📅 LEAVE BREAKDOWN — ' + monthName + ' ' + year + '</div>';
   html += '<div style="display:flex;flex-wrap:wrap;gap:4px 8px">';
 
   breakdown.forEach(item => {
@@ -1008,12 +934,6 @@ function renderLeaveBreakdown(empId) {
     html += '</div>';
   });
 
-  if (absentDays > 0) {
-    html += '<div style="display:inline-flex;align-items:baseline;gap:8px;font-size:12px;padding:4px 10px;background:#FFF3E0;border-radius:6px;white-space:nowrap">';
-    html += '<span><strong>🚫 Absent (no clock-in)</strong> <span style="color:#E65100;font-size:11px">(Unpaid)</span></span>';
-    html += '<span style="color:#E65100;font-weight:600">' + absentDays + ' day' + (absentDays > 1 ? 's' : '') + ' −' + fmt(absentDays * dayValue) + '</span>';
-    html += '</div>';
-  }
 
   html += '</div>';
   html += '<div style="margin-top:8px;font-size:11px;color:var(--text-muted)">';
