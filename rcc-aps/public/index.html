@@ -1109,41 +1109,6 @@
           </div>
         </div>
 
-        <!-- Attendance (imported from HRIS) -->
-        <div class="card" style="margin-top:24px">
-          <div class="card-head">
-            <div>
-              <div class="card-title">🕒 Attendance (clock-in / clock-out)</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Daily clock-in/out imported from the HRIS sync. Absence is auto-detected: a workday with no clock-in and no approved leave is counted as absent (unpaid, 8 hours = 1 day). Hours worked for Teaching staff is computed from these records.</div>
-            </div>
-            <button class="btn btn-outline" id="hrisAttSyncBtn" onclick="syncFromHris()" style="display:flex;align-items:center;gap:6px">🔄 Import from HRIS</button>
-          </div>
-          <div class="card-body" style="padding:0">
-            <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">
-              <div style="font-size:13px;font-weight:600;color:var(--maroon-dark)">Filter:</div>
-              <div class="combobox" id="attEmpWrap" style="min-width:280px">
-                <div class="search-wrap"><span class="search-icon">🔍</span>
-                  <input class="search-inp" id="attEmpSearch" placeholder="All Employees" autocomplete="off"
-                    oninput="onAttEmpInput()" onfocus="openAttEmpList()" onclick="openAttEmpList()" onkeydown="onAttEmpKey(event)"/>
-                  <button type="button" class="combobox-arrow" onclick="toggleAttEmpList(event)" aria-label="Show employee list">▼</button>
-                </div>
-                <input type="hidden" id="attEmp"/>
-                <div class="combobox-list" id="attEmpList"></div>
-              </div>
-            </div>
-            <table>
-              <thead><tr><th>Employee</th><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Hours</th></tr></thead>
-              <tbody id="attendanceList"></tbody>
-            </table>
-            <div id="attendanceEmpty" style="display:none;text-align:center;padding:40px;background:#FAFAFA;border:2px dashed #DDD;border-radius:14px;margin:16px">
-              <div style="font-size:40px;margin-bottom:12px">🕒</div>
-              <div style="font-weight:600;color:var(--text-muted);margin-bottom:6px">No attendance records yet</div>
-              <div style="font-size:13px;color:#AAA;margin-bottom:16px">Import clock-in/out from the HRIS to enable absence and hours auto-detection.</div>
-              <button class="btn btn-outline btn-sm" onclick="syncFromHris()">🔄 Import Attendance from HRIS</button>
-            </div>
-          </div>
-        </div>
-
       </div>
 
       <!-- SSS Detail Page -->

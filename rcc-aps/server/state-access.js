@@ -2,7 +2,7 @@
 const metadata = ['id','first','last','email','role','status','date','classification','department','hireDate','endDate','schoolLevel'];
 const { isSchoolEmail } = require('./school-identity');
 const compensation = ['salary','hourlyRate','absenceDays','hoursWorked','rankId','rankName','rateCustom'];
-const financeKeys = ['cashAdvances','bonusTypes','bonusPayouts','deductionCategories','payrollRecords','sssTable','philData','pagData','birData','dedMeta','bonusExemptionLimit','workDays','leaveTypes','leaveRecords','attendance','teacherRanks','hoursPerWorkload','teachingLoadRecords','teachingLoadClasses'];
+const financeKeys = ['cashAdvances','bonusTypes','bonusPayouts','deductionCategories','payrollRecords','sssTable','philData','pagData','birData','dedMeta','bonusExemptionLimit','workDays','leaveTypes','leaveRecords','teacherRanks','hoursPerWorkload','teachingLoadRecords','teachingLoadClasses'];
 const ownRecords = (rows, id) => (rows || []).filter(row => row.empId === id);
 const pick = (object, keys) => Object.fromEntries(keys.filter(key => Object.hasOwn(object,key)).map(key => [key,object[key]]));
 function actorFor(state, token) {

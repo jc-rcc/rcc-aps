@@ -45,42 +45,25 @@ function mapHrisEmployee(h) {
   };
 }
 
-// Normalize an attendance record from either the real API or mock into a shape
-// the client can consume: kept as one-per-day clock-in/out with the employee
-// email attached so the client can match it to a local user.
-function mapHrisAttendance(a) {
-  return {
-    employeeId: a.employee_id || a.employeeId || '',
-    employeeEmail: (a.employee_email || a.email || '').toLowerCase(),
-    date: a.date || (a.attendanceDate || ''),
-    clockInAt: a.clock_in_at || a.clockInAt || '',
-    clockOutAt: a.clock_out_at || a.clockOutAt || ''
-  };
-}
-
-// Fetch employees/attendance/leaves from the live HRIS. Falls back to the
+// Fetch employees/leaves from the live HRIS. Falls back to the
 // bundled mock dataset when no endpoint is configured or the API is offline.
 async function fetchHrisData() {
   if (HRIS_API_URL) {
     try {
       const headers = { Accept: 'application/json' };
       if (HRIS_API_KEY) headers.Authorization = 'Bearer ' + HRIS_API_KEY;
-      const [empRes, attRes, leaveRes] = await Promise.all([
+      const [empRes, leaveRes] = await Promise.all([
         fetch(`${HRIS_API_URL}/employees`, { headers }),
-        fetch(`${HRIS_API_URL}/attendance`, { headers }),
         fetch(`${HRIS_API_URL}/leave-requests`, { headers })
       ]);
       if (empRes.ok) {
         const employees = await empRes.json().catch(() => []);
-        const attendance = attRes.ok ? await attRes.json().catch(() => []) : [];
         const leaves = leaveRes.ok ? await leaveRes.json().catch(() => []) : [];
         const empList = (Array.isArray(employees) ? employees : (employees.employees || employees.data || []));
-        const attList = (Array.isArray(attendance) ? attendance : (attendance.attendance || attendance.data || []));
         const leaveList = (Array.isArray(leaves) ? leaves : (leaves.leaveRecords || leaves.data || []));
         return {
           source: 'HRIS API',
           employees: empList.map(mapHrisEmployee),
-          attendance: attList.map(mapHrisAttendance),
           leaveRecords: leaveList
         };
       }
@@ -91,7 +74,6 @@ async function fetchHrisData() {
   return {
     source: 'mock data',
     employees: hrisMock.employees.map(mapHrisEmployee),
-    attendance: (hrisMock.attendance || []).map(mapHrisAttendance),
     leaveRecords: hrisMock.leaveRecords || []
   };
 }

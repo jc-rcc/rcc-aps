@@ -357,122 +357,6 @@ document.addEventListener('click', function(e) {
   if (wrap && !wrap.contains(e.target)) closeLeaveRecEmpList();
 });
 
-// Render HRIS attendance (read-only, imported via sync). Shows one row per day.
-function renderAttendance() {
-  const list = document.getElementById('attendanceList');
-  const empty = document.getElementById('attendanceEmpty');
-  if (!list) return;
-
-  const records = (ATTENDANCE || []).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  if (!records.length) {
-    list.innerHTML = '';
-    list.style.display = 'none';
-    if (empty) empty.style.display = 'block';
-    return;
-  }
-
-  // Filter by selected employee
-  const selectedEmpId = parseInt(document.getElementById('attEmp')?.value) || 0;
-  const filtered = records.filter(r => {
-    return !selectedEmpId || r.empId === selectedEmpId;
-  });
-
-  if (empty) empty.style.display = 'none';
-  list.style.display = 'table-row-group';
-
-  list.innerHTML = filtered.map(r => {
-    const emp = users.find(u => u.id === r.empId);
-    const name = emp ? displayName(emp) : ('#USR-' + (r.empId || '?'));
-    const inTxt = fmtClock(r.clockInAt);
-    const outTxt = fmtClock(r.clockOutAt);
-    const hrs = r.hours != null ? r.hours : '—';
-    return `<tr>
-      <td><strong>${esc(name)}</strong></td>
-      <td>${esc(r.date || '—')}</td>
-      <td>${inTxt}</td>
-      <td>${outTxt}</td>
-      <td>${hrs} hrs</td>
-    </tr>`;
-  }).join('');
-}
-
-// Format an ISO UTC time into Manila local (UTC+8) HH:MM for display.
-function fmtClock(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
-  d.setMinutes(d.getMinutes() + 8 * 60); // UTC -> Asia/Manila
-  return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
-}
-
-// ── ATTENDANCE EMPLOYEE FILTER (combobox) ─────────────────────
-function attEmpOptions() {
-  return users.filter(u => u.status === 'Active' && (u.role === 'Employee' || u.role === 'Finance Officer' || u.role === 'System Admin'));
-}
-function getAttEmpQuery() {
-  return ((document.getElementById('attEmpSearch') || {}).value || '').toLowerCase().trim();
-}
-function attEmpMatches(u) {
-  const q = getAttEmpQuery();
-  if (!q) return true;
-  const name = `${u.first} ${u.last}`.toLowerCase();
-  return name.includes(q) || (u.email || '').toLowerCase().includes(q);
-}
-function renderAttEmpList(list, show) {
-  const box = document.getElementById('attEmpList');
-  if (!box) return;
-  const allItem = `<div class="combobox-item" onclick="selectAttEmp(0)" style="font-weight:600;color:var(--maroon-dark)">📋 All Employees</div>`;
-  box.innerHTML = allItem + (list.length
-    ? list.map(u => `<div class="combobox-item" onclick="selectAttEmp(${u.id})">${esc(displayName(u))} — ${u.classification}</div>`).join('')
-    : '<div class="combobox-empty">No employee found.</div>');
-  box.classList.toggle('show', show !== false);
-}
-function openAttEmpList() {
-  renderAttEmpList(attEmpOptions().filter(attEmpMatches));
-}
-function toggleAttEmpList(e) {
-  if (e) e.stopPropagation();
-  const box = document.getElementById('attEmpList');
-  if (box && box.classList.contains('show')) closeAttEmpList();
-  else openAttEmpList();
-}
-function closeAttEmpList() {
-  const box = document.getElementById('attEmpList');
-  if (box) box.classList.remove('show');
-}
-function onAttEmpInput() {
-  openAttEmpList();
-}
-function onAttEmpKey(e) {
-  if (e.key === 'Escape') { closeAttEmpList(); return; }
-  if (e.key === 'ArrowDown') { e.preventDefault(); openAttEmpList(); return; }
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const item = document.querySelector('#attEmpList .combobox-item');
-    if (item) item.click();
-  }
-  if (e.key === 'Backspace' && !e.target.value) {
-    selectAttEmp(0);
-  }
-}
-function selectAttEmp(id) {
-  document.getElementById('attEmp').value = id;
-  const inp = document.getElementById('attEmpSearch');
-  if (id === 0) {
-    inp.value = '';
-    inp.placeholder = 'All Employees';
-  } else {
-    const emp = users.find(u => u.id === id);
-    if (emp) inp.value = displayName(emp);
-  }
-  closeAttEmpList();
-  renderAttendance();
-}
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('attEmpWrap');
-  if (wrap && !wrap.contains(e.target)) closeAttEmpList();
-});
-
 function leaveRecordEmpOptions() {
   return users.filter(u => u.status === 'Active' && (u.role === 'Employee' || u.role === 'Finance Officer' || u.role === 'System Admin'));
 }
@@ -979,9 +863,9 @@ async function syncFromHris() {
     if (!response.ok) { if(response.status===409)await syncDemo(); throw new Error(result.error || 'HRIS sync failed.'); }
     localStorage.setItem(DEMO_KEY,JSON.stringify(result.state));
     applyServerData(result.state);
-    renderUserTable();renderAdminRecentUsers();updateAdminStats();renderLeaveTypes();renderAttendance();
+    renderUserTable();renderAdminRecentUsers();updateAdminStats();renderLeaveTypes();
     const counts=result.counts;
-    showToast('✅','HRIS sync: '+counts.added+' accounts added, '+counts.updated+' updated, '+counts.leaves+' leaves, '+counts.attendance+' attendance records.'+(counts.skipped?' '+counts.skipped+' unmatched or incomplete accounts skipped.':''));
+    showToast('✅','HRIS sync: '+counts.added+' accounts added, '+counts.updated+' updated, '+counts.leaves+' leaves.'+(counts.skipped?' '+counts.skipped+' unmatched or incomplete accounts skipped.':''));
   } catch(error) { showToast('⚠️',error.message || 'HRIS sync failed. Please try again.'); }
   finally { if(btn){btn.disabled=false;btn.textContent='🔄 Sync from HRIS';} }
 }
