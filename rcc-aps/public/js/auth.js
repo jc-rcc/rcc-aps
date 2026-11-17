@@ -7,6 +7,48 @@ function getAuthToken() { return localStorage.getItem(JWT_KEY); }
 function setAuthToken(token) { localStorage.setItem(JWT_KEY, token); }
 function clearAuthToken() { localStorage.removeItem(JWT_KEY); localStorage.removeItem(DEMO_KEY); }
 
+// Derive dashboard access from the server-verified role, never from cached state.
+function sessionIdentity(user) {
+  const label = {admin:'System Admin',finance:'Finance Officer',employee:'Employee'}[user.role];
+  if (!label || user.status !== 'Active') return null;
+  return {id:user.id,email:user.email,role:user.role,label,icon:ROLE_ICON[label],page:ROLE_PAGE[label],status:user.status};
+}
+
+async function restoreSession() {
+  const token = getAuthToken();
+  if (!token) return false;
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  document.getElementById('btnText').textContent = 'Restoring session...';
+  try {
+    const response = await fetch('/api/auth/me', {headers:{Authorization:'Bearer ' + token},cache:'no-store'});
+    if (getAuthToken() !== token) return false;
+    if (response.status === 401) { clearAuthToken(); return false; }
+    if (!response.ok) throw new Error('Session verification unavailable');
+    const result = await response.json();
+    const identity = result.user && sessionIdentity(result.user);
+    if (!identity) { clearAuthToken(); return false; }
+    if (!await syncDemo()) throw new Error('Account records unavailable');
+    if (getAuthToken() !== token) return false;
+    loggedInUser = identity;
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById(identity.page).classList.add('show');
+    initPage(identity.page);
+    return true;
+  } catch (error) {
+    if (getAuthToken() === token) {
+      document.getElementById('errText').textContent = 'Unable to restore your session. Check your connection and refresh, or sign in again.';
+      document.getElementById('errBox').classList.add('show');
+    }
+    return false;
+  } finally {
+    btn.disabled = false;
+    document.getElementById('btnText').textContent = 'Sign In';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', restoreSession);
+
 // Server-side login via /api/auth/login
 async function checkLogin(email, pass) {
   const now = Date.now();
@@ -41,6 +83,7 @@ function togglePass() {
 }
 
 async function handleLogin() {
+  if (document.getElementById('loginBtn')?.disabled) return;
   const email = document.getElementById('emailInp').value.trim().toLowerCase();
   const pass  = document.getElementById('passInp').value.trim();
   const err   = document.getElementById('errBox');
@@ -63,7 +106,7 @@ async function handleLogin() {
 
 async function completeLogin(u) {
   const err = document.getElementById('errBox');
-  loggedInUser = { id: u.id, email: u.email, role: u.role, label: u.label, icon: u.role === 'admin' ? '🔧' : u.role === 'finance' ? '💼' : '👤', page: u.page, status: u.status };
+  loggedInUser = sessionIdentity(u);
   if (!await syncDemo()) {
     clearAuthToken(); loggedInUser = null;
     document.getElementById('errText').textContent = 'Unable to load your account records. Please try logging in again.';
@@ -246,6 +289,37 @@ function initPage(page) {
   if (page === 'financePage') { if (typeof setDefaultPayPeriod === 'function') setDefaultPayPeriod(); updateFinStats(); renderFinRecentActivity(); populateCalcEmployees(); renderPayrollSummary(); renderBonusModule(); renderAnalytics(); }
   if (page === 'adminPage')   { updateAdminStats(); renderAdminRecentUsers(); renderUserTable(); }
 }
+// Re-render saved data without navigation or resetting payroll/profile forms.
+function refreshPageData(page) {
+  renderIdentity();
+  const visible = id => { const el = document.getElementById(id); return el && el.style.display !== 'none'; };
+  const render = (id, fn) => { if (visible(id)) fn(); };
+  if (page === 'adminPage') {
+    updateAdminStats(); renderAdminRecentUsers(); renderUserTable();
+    render('admDeduction', renderAdmDedTables);
+    render('admRanks', renderAdmRankTable);
+    render('admMyPayslip', renderAdmPayslipList);
+  }
+  if (page === 'financePage') {
+    updateFinStats(); renderFinRecentActivity();
+    render('finAnalytics', renderAnalytics);
+    render('finBonus', renderBonusModule);
+    render('finPayroll', renderPayrollSummary);
+    render('finDeduction', () => { renderDeductionCategories(); renderLeaveTypes(); renderLeaveRecords(); renderDedBanner(); renderWorkDaysSetting(); });
+    render('finRanks', renderRankTable);
+    render('finTeachingLoad', renderFinTeachingLoads);
+    render('finFormula', renderFormulaManagement);
+    render('finMyPayslip', renderFinPayslipList);
+    render('finDedSSS', renderSSSTable);
+    render('finDedPhilHealth', renderPhilHealthDisplay);
+    render('finDedPagIBIG', renderPagIBIGDisplay);
+    render('finDedBIR', renderBIRTable);
+  }
+  if (page === 'empPage') {
+    renderEmpDashboard(); renderPayslipList();
+  }
+}
+
 function setTopbarDates() {
   const d = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   ['empDateDisplay','finDateDisplay','admDateDisplay'].forEach(id=>{

@@ -122,7 +122,7 @@ function applyServerData(d) {
   if (typeof pagData  !== 'undefined' && d.pagData)  pagData  = Object.assign({}, pagData,  d.pagData);
   if (typeof birData  !== 'undefined' && Array.isArray(d.birData) && d.birData.length) birData = migrateBirTable(d.birData);
   if (typeof dedMeta  !== 'undefined' && d.dedMeta)  dedMeta  = Object.assign({}, dedMeta,  d.dedMeta);
-  if (typeof teacherRanks !== 'undefined' && Array.isArray(d.teacherRanks) && d.teacherRanks.length) teacherRanks = d.teacherRanks;
+  if (typeof teacherRanks !== 'undefined' && Array.isArray(d.teacherRanks)) teacherRanks = d.teacherRanks;
   if (d.nextRankId) nextRankId = d.nextRankId;
   if (typeof teachingLoadRecords !== 'undefined' && Array.isArray(d.teachingLoadRecords)) teachingLoadRecords = d.teachingLoadRecords;
   if (typeof teachingLoadClasses !== 'undefined' && Array.isArray(d.teachingLoadClasses)) teachingLoadClasses = d.teachingLoadClasses;
