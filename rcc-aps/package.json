@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "node scripts/test-smoke.cjs",
+    "test:report": "node scripts/test-report.cjs",
     "start": "node server/server.js",
     "dev": "node server/server.js"
   },

@@ -490,7 +490,8 @@ function renderEmpDashboard() {
   }
 }
 
-function viewPayslipDetail(period, empId) {
+function viewPayslipDetail(period, empId, fromReports = false) {
+  if (fromReports && (typeof loggedInUser === 'undefined' || loggedInUser?.role !== 'finance')) return;
   const emp = users.find(u => u.id === empId);
   const year = parseInt((period.match(/\d{4}/) || [])[0]) || new Date().getFullYear();
   const monthNum = MONTHS.indexOf(period.replace(` ${year}`, '')) + 1;
@@ -513,7 +514,7 @@ function viewPayslipDetail(period, empId) {
   const totalDed  = sss + phil + pag + bir + cash + thirteenTax + customTotal;
   const totalGross = grossTaxable + deMinimis + thirteenth;
   const isDec = monthNum === 12;
-  const page = ROLE_PAGE[emp.role] || 'empPage';
+  const page = fromReports ? 'financePage' : (ROLE_PAGE[emp.role] || 'empPage');
 
   const breakdown = Array.isArray(rec.subjectBreakdown) ? rec.subjectBreakdown : [];
   const subjLines = breakdown.filter(b => b.type !== 'increment');
@@ -591,6 +592,15 @@ function viewPayslipDetail(period, empId) {
       document.getElementById('empPayslip').style.display='block';
     };
   } else if (page === 'financePage') {
+    if (fromReports) {
+      showFinPage('finPayslipDetail', null);
+      if (typeof rememberSessionPage === 'function') rememberSessionPage('finReports');
+    }
+    const back = document.getElementById('finPsBackBtn');
+    if (back) {
+      back.textContent = fromReports ? '← Back to Reports' : '← Back to My Payslips';
+      back.onclick = () => showFinPage(fromReports ? 'finReports' : 'finMyPayslip', null);
+    }
     document.getElementById('finMyPayslip').style.display='none';
     document.getElementById('finPayslipDetail').style.display='block';
   } else {
@@ -657,6 +667,7 @@ function showFinPage(id, btn) {
     if (typeof renderFormulaManagement === 'function') renderFormulaManagement();
   }
   if (id === 'finMyPayslip') renderFinPayslipList();
+  if (id === 'finReports') renderEmployeePayslips();
   if (id === 'finPayrollReport') {
     document.getElementById('reportOutput').style.display = 'none';
   }

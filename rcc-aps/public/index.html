@@ -763,6 +763,20 @@
             </div>
           </div>
         </div>
+        <section class="card" aria-labelledby="employeePayslipsTitle">
+          <div class="card-head"><div class="card-title" id="employeePayslipsTitle">Employee Payslips</div></div>
+          <div class="card-body">
+            <p>View released employee payslips and download a PDF using Save as PDF in the print dialog.</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+              <label>Year <select class="fi" id="employeePsYear" onchange="renderEmployeePayslips()"></select></label>
+              <label>Month <select class="fi" id="employeePsMonth" onchange="renderEmployeePayslips()"><option value="">All months</option></select></label>
+              <label>Level <select class="fi" id="employeePsLevel" onchange="renderEmployeePayslips()"><option value="">All levels</option><option value="Non-Teaching">Non-Teaching</option><option value="Elementary">Elementary</option><option value="High School">High School</option><option value="College">College</option><option value="Graduate School">Graduate</option></select></label>
+              <label>Employee <input class="fi" id="employeePsSearch" placeholder="Search employee name" oninput="renderEmployeePayslips()"></label>
+            </div>
+            <p id="employeePsCount" aria-live="polite"></p>
+            <div class="tbl-wrap"><table><thead><tr><th>Employee</th><th>Level</th><th>Period</th><th>Net Pay</th><th>Actions</th></tr></thead><tbody id="employeePsBody"></tbody></table></div>
+          </div>
+        </section>
       </div>
 
       <!-- Government Contribution Report Page -->
@@ -774,6 +788,7 @@
         </div>
         <div class="pg-title">Government Contribution Report</div>
         <div class="pg-sub">Select a year and month to generate the contribution remittance report.</div>
+        <div style="margin:16px 0"><label for="govLevel">Level: </label><select class="fi" style="width:220px" id="govLevel" onchange="onGovMonthChange()"><option value="">All levels</option><option value="Non-Teaching">Non-Teaching</option><option value="Elementary">Elementary</option><option value="High School">High School</option><option value="College">College</option><option value="Graduate School">Graduate</option></select></div>
 
         <div class="card" style="margin-bottom:20px">
           <div class="card-head">
@@ -844,6 +859,7 @@
 
         <div class="pg-title">Payroll Summary Report</div>
         <div class="pg-sub">Select a year and month to generate the payroll report.</div>
+        <div style="margin:16px 0"><label for="rptLevel">Level: </label><select class="fi" style="width:220px" id="rptLevel" onchange="onMonthChange()"><option value="">All levels</option><option value="Non-Teaching">Non-Teaching</option><option value="Elementary">Elementary</option><option value="High School">High School</option><option value="College">College</option><option value="Graduate School">Graduate</option></select></div>
 
         <!-- Combined Year + Month Selector Card -->
         <div class="card" style="margin-bottom:20px">
@@ -1260,7 +1276,7 @@
       <!-- Finance Payslip Detail -->
       <div id="finPayslipDetail" style="display:none">
         <div style="margin-bottom:16px">
-          <button onclick="document.getElementById('finPayslipDetail').style.display='none';showFinPage('finMyPayslip',null)" style="background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--maroon-dark);padding:0">← Back to My Payslips</button>
+          <button id="finPsBackBtn" onclick="showFinPage('finMyPayslip',null)" style="background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--maroon-dark);padding:0">← Back to My Payslips</button>
         </div>
         <div class="ps-viewer">
           <div class="card" style="padding:0">
@@ -1901,11 +1917,11 @@
      JAVASCRIPT
 ════════════════════════════════════════════════════════════ -->
   <script src="js/core.js?v=20261117-session"></script>
-  <script src="js/auth.js?v=20261117-session"></script>
+  <script src="js/auth.js?v=20261119-reports"></script>
   <script src="js/profile-photo.js?v=20261021b"></script>
   <script src="js/employees.js?v=20260822c"></script>
-  <script src="js/payroll.js?v=20261117-session"></script>
-  <script src="js/reports.js?v=20261020a"></script>
+  <script src="js/payroll.js?v=20261119-reports"></script>
+  <script src="js/reports.js?v=20261119-reports"></script>
   <script src="js/bonus.js?v=20260903a"></script>
   <script src="js/ranks.js?v=20261021a"></script>
   <script src="js/teachingload.js?v=20261021a"></script>

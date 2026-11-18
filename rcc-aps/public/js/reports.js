@@ -1,3 +1,51 @@
+// Report filters use employee classification and school level, including
+// inactive employees whose released payroll must remain accessible.
+function reportEmployeeLevel(emp) {
+  return emp?.classification === 'Non-Teaching' ? 'Non-Teaching' : (emp?.schoolLevel || '');
+}
+function reportLevelLabel(id) {
+  return document.getElementById(id)?.value || 'All levels';
+}
+function reportEmployees(levelId, year, month = 0) {
+  const level = document.getElementById(levelId)?.value || '';
+  const ids = new Set(payrollRecords.filter(r => r.year === year && (!month || r.month === month)).map(r => r.empId));
+  return users.filter(emp => ids.has(emp.id) && (!level || reportEmployeeLevel(emp) === level));
+}
+
+function renderEmployeePayslips() {
+  if (typeof loggedInUser === 'undefined' || loggedInUser?.role !== 'finance') return;
+  const yearInput = document.getElementById('employeePsYear');
+  const monthInput = document.getElementById('employeePsMonth');
+  const years = [...new Set(payrollRecords.map(r => r.year))].sort((a,b) => b-a);
+  const previous = yearInput.value;
+  yearInput.innerHTML = years.map(year => '<option value="'+year+'">'+year+'</option>').join('');
+  yearInput.value = years.includes(Number(previous)) ? previous : (years[0] || '');
+  if (!monthInput.dataset.initialized) {
+    monthInput.innerHTML = '<option value="">All months</option>' + MONTHS.map((name,i) => '<option value="'+(i+1)+'">'+name+'</option>').join('');
+    monthInput.dataset.initialized = 'true';
+  }
+  const employees = reportEmployees('employeePsLevel', Number(yearInput.value), Number(monthInput.value));
+  const search = document.getElementById('employeePsSearch').value.trim().toLowerCase();
+  const rows = payrollRecords.filter(r => r.year === Number(yearInput.value) && (!monthInput.value || r.month === Number(monthInput.value)))
+    .map(rec => ({rec,emp:employees.find(emp => emp.id === rec.empId)}))
+    .filter(({emp}) => emp && displayName(emp).toLowerCase().includes(search))
+    .sort((a,b) => b.rec.month-a.rec.month || displayName(a.emp).localeCompare(displayName(b.emp)));
+  document.getElementById('employeePsCount').textContent = rows.length + ' released payslip(s)';
+  document.getElementById('employeePsBody').innerHTML = rows.map(({rec,emp}) => {
+    const args = Number(emp.id)+','+Number(rec.month)+','+Number(rec.year);
+    return '<tr><td>'+esc(displayName(emp))+'</td><td>'+esc(reportEmployeeLevel(emp))+'</td><td>'+esc(MONTHS[rec.month-1]+' '+rec.year)+'</td><td>'+fmt(rec.net)+'</td><td><button class="btn btn-outline btn-sm" onclick="openEmployeePayslip('+args+')">View</button> <button class="btn btn-primary btn-sm" onclick="openEmployeePayslip('+args+',true)">Download PDF</button></td></tr>';
+  }).join('') || '<tr><td colspan="5">No released payslips match these filters.</td></tr>';
+}
+
+function openEmployeePayslip(empId, month, year, download = false) {
+  if (typeof loggedInUser === 'undefined' || loggedInUser?.role !== 'finance') return;
+  if (!users.some(emp => emp.id === empId) || !payrollRecords.some(r => r.empId === empId && r.month === month && r.year === year)) {
+    showToast('⚠️','Payslip record not found.'); return;
+  }
+  viewPayslipDetail(MONTHS[month-1]+' '+year, empId, true);
+  if (download) printPayslip();
+}
+
 // ── GOVERNMENT CONTRIBUTION REPORT ────────────────────────────
 const GOV_REPORT_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function onGovYearChange() {
@@ -23,12 +71,12 @@ function renderGovReport(month, year) {
   const out = document.getElementById('govReportOutput');
   out.style.display = 'block';
   out.scrollIntoView({behavior:'smooth'});
-  document.getElementById('govReportTitle').textContent = `Government Contribution Report — ${GOV_REPORT_MONTHS[month-1]} ${year}`;
+  document.getElementById('govReportTitle').textContent = `Government Contribution Report — ${GOV_REPORT_MONTHS[month-1]} ${year} — ${reportLevelLabel('govLevel')}`;
   document.getElementById('govHead').innerHTML = `<tr>
     <th>EMPLOYEE</th><th>TYPE</th><th>GROSS</th><th>SSS</th><th>PHILHEALTH</th><th>PAG-IBIG</th><th>BIR</th><th>TOTAL REMITTANCE</th>
   </tr>`;
   const records = getPayrollRecords(month, year);
-  const employees = users.filter(u=>u.salary>0 && u.status==='Active');
+  const employees = reportEmployees('govLevel', year, month);
   const rows = records.filter(r => employees.some(u => u.id === r.empId));
   if (!rows.length) {
     document.getElementById('govBody').innerHTML = '';
@@ -44,7 +92,7 @@ function renderGovReport(month, year) {
     tGross+=r.gross; tSSS+=r.sss; tPhil+=r.phil; tPag+=r.pag; tBIR+=birTotal;
     return `<tr>
       <td><strong>${emp ? esc(displayName(emp)) : esc(r.name)}</strong></td>
-      <td><span class="badge ${EMP_CLASS[emp?.classification]?.badge||'b-gray'}">${emp?.classification||'Non-Teaching'}</span></td>
+      <td><span class="badge ${EMP_CLASS[emp?.classification]?.badge||'b-gray'}">${esc(reportEmployeeLevel(emp) || 'Unspecified')}</span></td>
       <td>${fmt(r.gross)}</td>
       <td>${fmt(r.sss)}</td>
       <td>${fmt(r.phil)}</td>

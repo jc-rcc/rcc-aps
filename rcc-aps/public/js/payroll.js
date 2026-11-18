@@ -1492,13 +1492,13 @@ function showMonthReport(monthNum, year, monthName) {
   const out = document.getElementById('reportOutput');
   out.style.display = 'block';
   out.scrollIntoView({behavior:'smooth'});
-  document.getElementById('reportTitle').textContent = `Payroll Summary Report — ${monthName} ${year}`;
+  document.getElementById('reportTitle').textContent = `Payroll Summary Report — ${monthName} ${year} — ${reportLevelLabel('rptLevel')}`;
   document.getElementById('rptHead').innerHTML = `<tr>
     <th>EMPLOYEE</th><th>TYPE</th><th>GROSS PAY</th><th>BONUS</th><th>SSS</th>
     <th>PHILHEALTH</th><th>PAG-IBIG</th><th>BIR</th><th>NET PAY</th><th>STATUS</th>
   </tr>`;
 
-  const employees = users.filter(u => u.salary > 0 && u.status === 'Active');
+  const employees = reportEmployees('rptLevel', year, monthNum);
   if (!employees.length) {
     document.getElementById('rptBody').innerHTML = '';
     document.getElementById('rptEmpty').style.display = 'block';
@@ -1529,7 +1529,7 @@ function showMonthReport(monthNum, year, monthName) {
     tPag+=r.pag; tBIR+=birTotal; tNet+=r.net;
     return `<tr>
       <td><strong>${emp ? esc(displayName(emp)) : esc(r.name)}</strong></td>
-      <td><span class="badge ${EMP_CLASS[emp?.classification]?.badge||'b-gray'}">${emp?.classification||'Non-Teaching'}</span></td>
+      <td><span class="badge ${EMP_CLASS[emp?.classification]?.badge||'b-gray'}">${esc(reportEmployeeLevel(emp) || 'Unspecified')}</span></td>
       <td>${fmt(r.gross)}</td>
       <td>${bonusCell}</td>
       <td>${fmt(r.sss)}</td>
@@ -1569,9 +1569,11 @@ function showYearReport(year) {
   const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const MONTHS_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  const dataMonths = reportMonthsFor(year);
+  const employees = reportEmployees('rptLevel', year);
+  const employeeIds = new Set(employees.map(emp => emp.id));
+  const dataMonths = [...new Set(payrollRecords.filter(r => r.year === year && employeeIds.has(r.empId)).map(r => r.month))].sort((a,b) => a-b);
 
-  document.getElementById('reportTitle').textContent = `Payroll Summary Report — Full Year ${year}`;
+  document.getElementById('reportTitle').textContent = `Payroll Summary Report — Full Year ${year} — ${reportLevelLabel('rptLevel')}`;
   document.getElementById('rptHead').innerHTML = `<tr>
     <th>EMPLOYEE</th>
     ${MONTHS_SHORT.map((m, i) => {
@@ -1580,8 +1582,6 @@ function showYearReport(year) {
     }).join('')}
     <th>TOTAL NET PAY</th>
   </tr>`;
-
-  const employees = users.filter(u => u.salary > 0 && u.status === 'Active');
 
   if (!employees.length || !dataMonths.length) {
     document.getElementById('rptBody').innerHTML = '';
