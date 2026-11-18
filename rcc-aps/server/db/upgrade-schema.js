@@ -1,6 +1,9 @@
 'use strict';
 const { sqlDate, dateColumns } = require('./state-writer');
 async function upgradeSchema(c) {
+  // Independent additive upgrade also runs for databases already on schema v2.
+  const [absenceColumn] = await c.query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='payroll_records' AND COLUMN_NAME='absenceRecords'");
+  if (!absenceColumn.length) await c.query('ALTER TABLE payroll_records ADD COLUMN absenceRecords MEDIUMTEXT NULL');
   const [versions] = await c.query("SELECT cfg_value FROM app_config WHERE cfg_key='schemaVersion'");
   if (Number(versions[0]?.cfg_value) >= 2) return;
   const extras = {

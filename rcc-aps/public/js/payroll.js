@@ -192,7 +192,7 @@ let BONUS_EXEMPTION_LIMIT = (_savedDemo && _savedDemo.bonusExemptionLimit) || 90
 // Payroll basis: working days per month used as the absence divisor for
 // monthly-paid (Non-Teaching) staff. Configurable in Deduction Tables —
 // standard convention is 22; holidays stay paid so they are not deducted.
-let WORK_DAYS = (_savedDemo && _savedDemo.workDays) || 22;
+let WORK_DAYS = (_savedDemo && _savedDemo.workDays) || 26.08;
 // High School workload size: 1 workload = this many teaching hours.
 // Configurable in Formula Management; feeds payroll + teaching load estimates.
 let HOURS_PER_WORKLOAD = (_savedDemo && _savedDemo.hoursPerWorkload) || 3;
@@ -560,7 +560,11 @@ function syncCalcTabUI() {
   if (attLabel) attLabel.textContent = 'Absences (days)';
   const workDaysField = document.getElementById('calcWorkDaysField');
   if (workDaysField) workDaysField.style.display = (isNT || isElem) ? '' : 'none';
+  const teachingSection = document.getElementById('calcTeachingLoadSection');
+  if (teachingSection) teachingSection.style.display = (isExpl || isElem) ? 'block' : 'none';
   if (explRow) explRow.style.display = isExpl ? 'block' : 'none';
+  const absenceSection = document.getElementById('calcAbsenceRecords');
+  if (absenceSection) absenceSection.style.display = 'block';
   if (rateHdr) rateHdr.textContent = group === 'High School' ? 'Rate per Workload (₱)' : 'Rate per Hour (₱)';
   if (qtyHdr) qtyHdr.textContent = group === 'High School' ? 'Total Hours' : 'Qty (Hrs/Month)';
   const workloadHdr = document.getElementById('calcWorkloadHdr');
@@ -640,12 +644,13 @@ function calcSubjectNumbers(tr, group) {
 function renderCalcTeachingReference(loads) {
   const reference = document.getElementById('calcTeachingLoadReference');
   if (!reference) return;
-  if (currentCalcTab !== 'High School' || !loads.length) {
+  if (!['High School', 'Elementary'].includes(currentCalcTab) || !loads.length) {
     reference.innerHTML = ''; reference.style.display = 'none'; return;
   }
   reference.style.display = 'block';
   reference.innerHTML = '<details open><summary style="font-weight:600;margin-bottom:8px">Teaching Load — Reference Copy</summary>' +
-    '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Saved schedule shared by the employee and Finance. Actual payroll hours are entered separately below.</div>' +
+    '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Saved schedule shared by the employee and Finance. ' +
+    (currentCalcTab === 'Elementary' ? 'Elementary payroll uses monthly salary and absences; this schedule is for reference.' : 'Actual payroll hours are entered separately below.') + '</div>' +
     '<div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th>Subject</th><th>Level</th><th>Dept</th><th>Days</th><th>Time</th><th>Hours/Week</th></tr></thead><tbody>' +
     loads.map(l => '<tr><td>' + esc(l.subject) + '</td><td>' + esc(l.level) + '</td><td>' + esc(l.deptCode) + '</td><td>' + esc(l.days) + '</td><td>' + esc([l.timeStart,l.timeEnd].filter(Boolean).join(' – ')) + '</td><td>' + formatCalcQty(l.hoursPerWeek) + '</td></tr>').join('') +
     '</tbody></table></div></details>';
@@ -829,6 +834,13 @@ function loadEmployeeData() {
 
   const workDaysInput = document.getElementById('calcWorkDays');
   const workDaysContext = emp.id + '|' + period;
+  const absenceRows = document.getElementById('calcAbsenceRows');
+  if (absenceRows && absenceRows.dataset.context !== workDaysContext) {
+    absenceRows.innerHTML = '';
+    absenceRows.dataset.context = workDaysContext;
+    const saved = payrollRecords.find(r => r.empId === emp.id && r.period === period);
+    for (const entry of (saved && saved.absenceRecords) || []) addCalcAbsenceRecord(entry, false);
+  }
   const customRow = document.getElementById('calcCustomRow');
   if (customRow && customRow.dataset.context !== workDaysContext) {
     renderCalcCustomInputs();
@@ -863,6 +875,15 @@ function loadEmployeeData() {
     salEl.value = rate || '';
     attEl.value = '';
   } else if (isTeaching) {
+    syncCalcTeachingYears(emp.id);
+    const semester = document.getElementById('calcSemester').value;
+    const schoolYear = document.getElementById('calcSchoolYear').value;
+    const loads = latestTeachingLoads(emp.id, semester, schoolYear, monthNum, year);
+    const termStatus = document.getElementById('calcTeachingTermStatus');
+    if (termStatus) termStatus.textContent = loads.length
+      ? 'Loaded ' + loads.length + ' subject(s) from Teaching Load · ' + (semester === 'Summer' ? 'Summer' : semester + ' Sem') + ' · SY ' + schoolYear + '. Reference schedule only. Payroll uses monthly salary and absences.'
+      : 'No saved Teaching Load subjects for this employee in the selected semester and school year.';
+    renderCalcTeachingReference(loads);
     // Elementary: monthly salary with absences deducted (÷ WORK_DAYS).
     // Prefill from the profile salary (encoded in Teaching Load / synced
     // from the last payroll run); fall back to the rank-table rate.
@@ -1028,6 +1049,40 @@ function splitBonuses(bonuses) {
   return { deMinimisSum: parseFloat(deMinimisSum.toFixed(2)), taxableSum: parseFloat(taxableSum.toFixed(2)) };
 }
 
+function addCalcAbsenceRecord(entry = {}, recompute = true) {
+  const body = document.getElementById('calcAbsenceRows');
+  if (!body) return;
+  if (body.children.length >= 100) { showToast('⚠️', 'Maximum 100 absence records per payroll.'); return; }
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin:8px 0';
+  row.innerHTML = '<input class="fi" type="date" aria-label="Absence date" data-absence-date style="width:160px">' +
+    '<input class="fi" aria-label="Absence description" data-absence-description maxlength="300" placeholder="Description" style="flex:1;min-width:180px">' +
+    '<input class="fi" type="number" aria-label="Absence amount" data-absence-amount min="0" max="9999999999.99" step="0.01" placeholder="Amount (₱)" style="width:160px">' +
+    '<button type="button" class="btn btn-secondary" aria-label="Remove absence record">Remove</button>';
+  row.querySelector('[data-absence-date]').value = entry.date || '';
+  row.querySelector('[data-absence-description]').value = entry.description || '';
+  row.querySelector('[data-absence-amount]').value = entry.amount ?? '';
+  row.oninput = () => computePayroll();
+  row.querySelector('button').onclick = () => { row.remove(); computePayroll(); };
+  body.appendChild(row);
+  if (recompute) computePayroll();
+}
+
+function readCalcAbsenceRecords() {
+  const body = document.getElementById('calcAbsenceRows');
+  return body ? Array.from(body.children).map(row => ({
+    date: row.querySelector('[data-absence-date]').value,
+    description: row.querySelector('[data-absence-description]').value.trim(),
+    amount: row.querySelector('[data-absence-amount]').value === '' ? NaN : Number(row.querySelector('[data-absence-amount]').value)
+  })) : [];
+}
+
+function validCalcAbsenceRecord(entry) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(entry.date) && Number.isFinite(Date.parse(entry.date)) &&
+    new Date(entry.date).toISOString().slice(0,10) === entry.date && entry.description.length > 0 && entry.description.length <= 300 &&
+    Number.isFinite(entry.amount) && entry.amount >= 0 && entry.amount <= 9999999999.99 && Math.abs(entry.amount * 100 - Math.round(entry.amount * 100)) < 0.0001;
+}
+
 function calcAbsenceWorkDays() {
   const input = document.getElementById('calcWorkDays');
   const days = input ? Number(input.value) : WORK_DAYS;
@@ -1052,6 +1107,15 @@ function computePayroll() {
   let subjectBreakdown = null;
   const group = currentCalcTab;
   const isExplTab = group === 'High School' || group === 'College / Graduate';
+  const absenceRecords = readCalcAbsenceRecords();
+  const invalidAbsences = absenceRecords.some(entry => !validCalcAbsenceRecord(entry));
+  const absenceError = document.getElementById('calcAbsenceError');
+  if (absenceError) absenceError.textContent = invalidAbsences ? 'Complete each absence date, description, and non-negative amount (up to 2 decimal places), or remove the row.' : '';
+  if (invalidAbsences) {
+    lastCalc = null;
+    document.getElementById('calcResult').style.display = 'none';
+    return;
+  }
   if (group === 'High School' && subjectTotals && !subjectTotals.valid) {
     lastCalc = null;
     document.getElementById('calcResult').style.display = 'none';
@@ -1153,7 +1217,7 @@ function computePayroll() {
     absenceWorkDays: workDays,
     absenceDays: isExplTab ? null : Math.max(0, parseFloat(attEl.value) || 0),
     customDeds: d.custom, customTotal: d.customTotal,
-    subjectBreakdown, payNote,
+    subjectBreakdown, payNote, absenceRecords,
     teachingSemester: isExplTab ? document.getElementById('calcSemester').value : null,
     teachingSchoolYear: isExplTab ? document.getElementById('calcSchoolYear').value : null
   };
@@ -1182,6 +1246,7 @@ function computePayroll() {
 
   document.getElementById('calcEarnings').innerHTML = `
     ${earningsHtml}
+    ${absenceRecords.length ? '<div style="margin:12px 0;font-size:12px"><strong>Absence records — no additional deduction</strong>' + absenceRecords.map(entry => '<div style="padding:6px 0">' + esc(entry.date) + ' · ' + esc(entry.description) + ' · Recorded amount: ' + fmt(entry.amount) + '</div>').join('') + '</div>' : ''}
     ${bonuses.map(b=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F5F0EA;font-size:13.5px"><span style="color:var(--text-muted)">🎁 '+esc(b.name)+' <span style="font-size:11px;color:'+(b.deMinimis?'#2E7D32':'var(--text-muted)')+'">— '+(b.deMinimis?'de minimis (tax-exempt)':'taxable bonus')+'</span></span><span style="font-weight:600">+'+fmt(b.amount)+'</span></div>').join('')}
     ${thirteenth>0 ? '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F5F0EA;font-size:13.5px"><span style="color:var(--text-muted)">🎁 13th Month Pay (RA 8515) <span style="font-size:11px;color:#2E7D32">— exempt up to '+fmt(BONUS_EXEMPTION_LIMIT)+'/yr</span></span><span style="font-weight:700;color:var(--maroon-dark)">+'+fmt(thirteenSplit.exempt13)+'</span></div>' : ''}
     ${thirteenth>0 && thirteenSplit.taxable13>0 ? '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F5F0EA;font-size:13.5px"><span style="color:var(--text-muted)">⚠️ 13th Month excess <span style="font-size:11px;color:#C62828">— taxable (over '+fmt(BONUS_EXEMPTION_LIMIT)+')</span></span><span style="font-weight:600;color:#C62828">+'+fmt(thirteenSplit.taxable13)+'</span></div>' : ''}

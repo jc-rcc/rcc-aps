@@ -554,7 +554,7 @@
       <!-- Finance Payroll Calculation -->
       <div id="finPayroll" style="display:none">
         <div class="pg-title">Payroll Calculation</div>
-        <div class="pg-sub">Compute gross pay, deductions, and net pay. Teaching Personnel are paid by hours worked × hourly rate; Non-Teaching Personnel receive a fixed monthly base with absences deducted using a 22-day divisor. Select <strong>December</strong> (or tick "Include 13th Month Pay") to add the statutory 13th month bonus per RA 8515.</div>
+        <div class="pg-sub">Compute gross pay, deductions, and net pay. Teaching Personnel are paid by hours worked × hourly rate; Non-Teaching Personnel receive a fixed monthly base with absences deducted using the configured absence divisor. Select <strong>December</strong> (or tick "Include 13th Month Pay") to add the statutory 13th month bonus per RA 8515.</div>
         <div class="card" style="margin-bottom:16px">
           <div class="card-head">
             <div class="card-title">💰 Payroll Calculator</div>
@@ -604,7 +604,7 @@
               <div class="fg" id="calcAttField"><label class="fl" id="calcAttLabel">Absences (days)</label><input class="fi" type="number" id="calcAtt" step="0.5" min="0" placeholder="0" oninput="computePayroll()"/></div>
               <div class="fg" id="calcWorkDaysField">
                 <label class="fl" for="calcWorkDays">Work Days (absence divisor)</label>
-                <input class="fi" type="number" id="calcWorkDays" step="0.5" min="1" max="31" oninput="computePayroll()"/>
+                <input class="fi" type="number" id="calcWorkDays" step="0.01" min="1" max="31" oninput="computePayroll()"/>
                 <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px">Defaults to Formula Management. Changes apply to this payroll computation only.</div>
                 <div id="calcWorkDaysErr" role="status" style="display:none;font-size:12px;color:#C62828;margin-top:4px">Enter Work Days between 1 and 31.</div>
               </div>
@@ -612,7 +612,7 @@
             </div>
 
             <!-- EXPLANATION editor (High School / College + Graduate) -->
-            <div id="calcExplanationRow" style="display:none;margin-bottom:16px">
+            <div id="calcTeachingLoadSection" style="display:none;margin-bottom:16px">
               <div class="fg-row" style="margin-bottom:12px">
                 <div class="fg">
                   <label class="fl" for="calcSchoolYear">Teaching Load School Year</label>
@@ -629,6 +629,8 @@
               </div>
               <div id="calcTeachingTermStatus" role="status" style="font-size:12px;color:var(--text-muted);margin-bottom:12px"></div>
               <div id="calcTeachingLoadReference" style="display:none;margin-bottom:16px"></div>
+            </div>
+            <div id="calcExplanationRow" style="display:none;margin-bottom:16px">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
                 <div style="font-size:13px;font-weight:700;color:var(--maroon)">📝 Explanation — Subjects &amp; Hours Rendered</div>
                 <div style="display:flex;gap:8px">
@@ -663,6 +665,13 @@
               </div>
             </div>
 
+            <section id="calcAbsenceRecords" style="display:none;margin-bottom:16px">
+              <strong>Absence records</strong>
+              <p style="font-size:12px">Record the date, description, and amount. These amounts do not change gross pay, deductions, or net pay. For Elementary and Non-Teaching, use Absences (days) for the actual salary deduction. For High School and College/Graduate, adjust rendered hours separately when needed.</p>
+              <div id="calcAbsenceRows"></div>
+              <button type="button" class="btn btn-secondary" onclick="addCalcAbsenceRecord()">+ Add absence record</button>
+              <div id="calcAbsenceError" style="color:#C62828;font-size:12px" role="alert"></div>
+            </section>
             <div class="fg-row" style="margin-bottom:16px;display:none" id="calcCustomRow"></div>
               <div id="calcEmpMeta" style="display:none;margin-bottom:16px;background:var(--gold-pale);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--maroon-dark)">
               <strong id="calcMetaName"></strong> — <span id="calcMetaClass"></span> · Department: <span id="calcMetaDept"></span>
@@ -996,13 +1005,13 @@
             <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
               <div class="fg" style="min-width:220px">
                 <label class="fl">Working Days per Month</label>
-                <input class="fi" type="number" step="0.5" min="1" max="31" id="workDaysInput" value="22"/>
+                <input class="fi" type="number" step="0.01" min="1" max="31" id="workDaysInput" value="26.08"/>
               </div>
               <button class="btn btn-primary" onclick="saveWorkDays()">💾 Save</button>
             </div>
             <div style="margin-top:12px;font-size:12px;color:var(--text-muted);line-height:1.6">
-              Formula: Gross = Monthly Salary − (Absences ÷ <span id="workDaysFormula">22</span> × Monthly Salary).
-              The standard convention is <strong>22 working days per month</strong> — a fixed divisor keeps the daily absence value consistent across all months, since actual Mon–Fri days vary (20–23) and holidays remain paid for monthly-rate employees.
+              Formula: Gross = Monthly Salary − (Absences ÷ <span id="workDaysFormula">26.08</span> × Monthly Salary).
+              The absence divisor defaults to <strong>26.08</strong>. Finance can update it in Formula Management or override it for an individual payroll computation.
               Teaching staff are paid hourly and are not affected by this setting.
             </div>
           </div>

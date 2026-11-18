@@ -14,6 +14,40 @@ function sessionIdentity(user) {
   return {id:user.id,email:user.email,role:user.role,label,icon:ROLE_ICON[label],page:ROLE_PAGE[label],status:user.status};
 }
 
+// Keep navigation per account and browser tab; restore only after server verification.
+const SESSION_PAGES = {
+  finance: ['finDashboard','finAnalytics','finBonus','finPayroll','finReports','finGovReport','finPayrollReport','finDeduction','finMyPayslip','finMyProfile','finChangePassword','finDedSSS','finDedPhilHealth','finDedPagIBIG','finDedBIR','finRanks','finTeachingLoad','finFormula'],
+  employee: ['empDashboard','empPayslip','empProfile','empPassword','empTeachingLoad'],
+  admin: ['admDashboard','admUsers','admDeduction','admMyPayslip','admMyProfile','admChangePassword','admRanks']
+};
+function sessionPageKey() {
+  return loggedInUser ? 'rcc_aps_page_' + loggedInUser.id + '_' + loggedInUser.role : null;
+}
+function rememberSessionPage(id) {
+  if (!loggedInUser || typeof sessionStorage === 'undefined') return;
+  const fallback = {payslipDetailPage:'empPayslip',finPayslipDetail:'finMyPayslip',admPayslipDetail:'admMyPayslip'};
+  id = fallback[id] || id;
+  if (!(SESSION_PAGES[loggedInUser.role] || []).includes(id)) return;
+  try { sessionStorage.setItem(sessionPageKey(), id); } catch (_) { /* Storage may be disabled. */ }
+}
+function restoreSessionPage() {
+  if (!loggedInUser || typeof sessionStorage === 'undefined') return;
+  let id;
+  try { id = sessionStorage.getItem(sessionPageKey()); } catch (_) { return; }
+  if (!(SESSION_PAGES[loggedInUser.role] || []).includes(id)) return;
+  // Faculty-only navigation should not reopen for an employee whose assignment changed.
+  if (id === 'empTeachingLoad') {
+    const emp = currentEmp();
+    if (!emp || emp.classification !== 'Teaching') return;
+  }
+  if (!document.getElementById(id)) return;
+  const root = document.getElementById(loggedInUser.page);
+  const navId = {finGovReport:'finReports',finPayrollReport:'finReports',finDedSSS:'finDeduction',finDedPhilHealth:'finDeduction',finDedPagIBIG:'finDeduction',finDedBIR:'finDeduction'}[id] || id;
+  const button = root ? Array.from(root.querySelectorAll('.nav-item')).find(b => (b.getAttribute('onclick') || '').includes("'" + navId + "'")) : null;
+  const navigate = {finance:showFinPage,employee:showEmpPage,admin:showAdmPage}[loggedInUser.role];
+  if (navigate) navigate(id, button);
+}
+
 async function restoreSession() {
   const token = getAuthToken();
   if (!token) return false;
@@ -34,6 +68,7 @@ async function restoreSession() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById(identity.page).classList.add('show');
     initPage(identity.page);
+    restoreSessionPage();
     return true;
   } catch (error) {
     if (getAuthToken() === token) {
@@ -143,6 +178,7 @@ async function completeLogin(u) {
 
 function logout() {
   if (typeof closeSidebar==='function') closeSidebar();
+  try { if (typeof sessionStorage !== 'undefined' && sessionPageKey()) sessionStorage.removeItem(sessionPageKey()); } catch (_) {}
   clearAuthToken();
   localStorage.removeItem(DEMO_KEY);
   loggedInUser = null;
@@ -532,6 +568,7 @@ function viewPayslipDetail(period, empId) {
         <tfoot><tr><th class="ps-text" colspan="4">TOTAL</th><td>${fmt(totalGross)}</td><td>${fmt(sss)}</td><td>${fmt(phil)}</td><td>${fmt(pag)}</td><td>${fmt(peraa)}</td><td>${fmt(bir + thirteenTax)}</td><td>${fmt(cash)}</td><td>${fmt(otherAmount)}</td><td class="ps-net">${fmt(netPay)}</td></tr></tfoot>
       </table>
       <div class="ps-notes">
+        ${(rec.absenceRecords || []).length ? '<div style="margin-bottom:8px"><strong>Absence records — no additional deduction</strong><div>These recorded amounts do not change gross or net pay.</div>' + rec.absenceRecords.map(entry => '<div>' + esc(entry.date) + ' · ' + esc(entry.description) + ' · Recorded amount: ' + fmt(entry.amount) + '</div>').join('') + '</div>' : ''}
         ${emp.rankName ? '<div>Rank: ' + esc(emp.rankName) + '</div>' : ''}
         ${rec.payNote ? '<div>Pay note: ' + esc(rec.payNote) + '</div>' : ''}
         ${customNotes ? '<div>Other deductions: ' + customNotes + '</div>' : ''}
@@ -592,6 +629,7 @@ function printPayslip() {
 }
 
 function showFinPage(id, btn) {
+  rememberSessionPage(id);
   if (typeof closeSidebar==='function') closeSidebar();
   ['finDashboard','finAnalytics','finBonus','finPayroll','finReports','finGovReport','finPayrollReport','finDeduction','finMyPayslip','finPayslipDetail','finMyProfile','finChangePassword',
    'finDedSSS','finDedPhilHealth','finDedPagIBIG','finDedBIR','finRanks','finTeachingLoad','finFormula'].forEach(x=>{
@@ -625,6 +663,7 @@ function showFinPage(id, btn) {
 }
 
 function showEmpPage(id, btn) {
+  rememberSessionPage(id);
   if (typeof closeSidebar==='function') closeSidebar();
   ['empDashboard','empPayslip','empProfile','empPassword','payslipDetailPage','empTeachingLoad'].forEach(x=>{
     const el = document.getElementById(x);
@@ -642,6 +681,7 @@ function showEmpPage(id, btn) {
 }
 
 function showAdmPage(id, btn) {
+  rememberSessionPage(id);
   if (typeof closeSidebar==='function') closeSidebar();
   ['admDashboard','admUsers','admDeduction','admMyPayslip','admPayslipDetail','admMyProfile','admChangePassword','admRanks'].forEach(x=>{
     const el = document.getElementById(x);

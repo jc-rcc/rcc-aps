@@ -45,9 +45,13 @@ const serverContext=vm.createContext({module:{exports:{}},require:name=>name==='
 vm.runInContext(fs.readFileSync(__dirname+'/../server/db.js','utf8'),serverContext);
 (async()=>{
  const customDeds=[{id:7,name:'PERAA',amount:400}];
- await serverContext.module.exports.persistState({payrollRecords:[{empId:3,month:10,year:2026,gross:20000,net:19600,customDeds}]});
+ const absenceRecords=[{date:'2026-10-19',description:'Morning class absence',amount:250.55}];
+ await serverContext.module.exports.persistState({payrollRecords:[{empId:3,month:10,year:2026,gross:20000,net:19600,customDeds,absenceRecords}]});
  const state=await serverContext.module.exports.assembleState();
  assert.equal(state.payrollRecords[0].customDeds[0].amount,400);
  assert.equal(state.payrollRecords[0].customDeds[0].name,'PERAA');
+ assert.equal(JSON.stringify(state.payrollRecords[0].absenceRecords),JSON.stringify(absenceRecords));
+ assert.equal(state.payrollRecords[0].gross,20000);
+ assert.equal(state.payrollRecords[0].net,19600);
  console.log('PASS: PERAA configuration, fixed/percent calculations, employee override, disabled contributions, and database round-trip.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

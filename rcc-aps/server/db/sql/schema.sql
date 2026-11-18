@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS payroll_records (
   cash          DECIMAL(12,2) NOT NULL DEFAULT 0,
   bonuses       MEDIUMTEXT NOT NULL DEFAULT ('[]'),
   subjectBreakdown TEXT,
+  absenceRecords MEDIUMTEXT,
   customDeds    TEXT,
   salaryBase    DECIMAL(12,2) NULL,
   absenceWorkDays DECIMAL(6,2) NULL,

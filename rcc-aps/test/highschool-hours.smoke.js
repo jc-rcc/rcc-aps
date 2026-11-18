@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const source = fs.readFileSync(__dirname+'/../public/js/payroll.js','utf8');
 const html = fs.readFileSync(__dirname+'/../public/index.html','utf8');
 const elements = Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>[m[1],{value:'',innerHTML:'',textContent:'',style:{},dataset:{}}]));
+elements.calcAbsenceRows.children = [];
 const rows = [];
 const prefills = [];
 function row(subject, hours, rate, type='subject') {
@@ -21,7 +22,7 @@ elements.calcEmp.value='3';elements.payPeriod.value='November 2026';
 elements.calcSemester.value='1st';elements.calcSchoolYear.value='2026-2027';
 const employee={id:3,first:'Sample',last:'Teacher',classification:'Teaching',schoolLevel:'High School',role:'Employee',rankName:'HS Rank',rankRate:1300};
 const context=vm.createContext({
-  _savedDemo:{},WORK_DAYS:22,HOURS_PER_WORKLOAD:3,users:[employee],currentCalcTab:'High School',lastCalc:null,
+  _savedDemo:{},payrollRecords:[],WORK_DAYS:22,HOURS_PER_WORKLOAD:3,users:[employee],currentCalcTab:'High School',lastCalc:null,
   MONTHS:['January','February','March','April','May','June','July','August','September','October','November','December'],
   fmt:n=>'P'+Number(n).toFixed(2),esc:s=>String(s??''),displayName:u=>u.first+' '+u.last,teacherRate:u=>u.rankRate,
   document:{getElementById:id=>elements[id]||null,querySelectorAll:selector=>selector==='#calcSubjectBody tr'?rows:[],addEventListener(){}},
@@ -32,7 +33,7 @@ const context=vm.createContext({
   thirteenthTaxSplit:()=>({annualTax:0}),computeDeductions:(gross,cash)=>({net:gross-cash,sss:0,phil:0,pag:0,bir:0,cash,custom:[],customTotal:0})
 });
 vm.runInContext(fs.readFileSync(__dirname+'/../public/js/teachingload.js','utf8'),context);
-for(const name of ['calcHoursPerWorkload','formatCalcQty','calcSubjectNumbers','syncCalcRankRates','recomputeCalcTotals','calcScheduledMonthHours','latestTeachingLoads','renderCalcTeachingReference','calcAbsenceWorkDays','loadEmployeeData','computePayroll']) {
+for(const name of ['calcHoursPerWorkload','formatCalcQty','calcSubjectNumbers','syncCalcRankRates','recomputeCalcTotals','calcScheduledMonthHours','latestTeachingLoads','renderCalcTeachingReference','calcAbsenceWorkDays','readCalcAbsenceRecords','validCalcAbsenceRecord','loadEmployeeData','computePayroll']) {
   const fn=source.match(new RegExp('function '+name+'\\([^]*?\\n}'));
   assert.ok(fn,'Missing function '+name);vm.runInContext(fn[0],context);
 }
@@ -53,6 +54,30 @@ assert.equal(elements.calcTotalHours.textContent,'13');
 assert.equal(elements.calcTotalQty.textContent,'4.333333');
 assert.equal(rows[0].fields['.calc-workloads'].textContent,'1.666667');
 const saved=JSON.parse(JSON.stringify(context.lastCalc));
+const absence={date:'2026-11-19',description:'Missed morning class',amount:250.55};
+function absenceRow(entry) { return {querySelector:selector=>({value:selector.includes('-date')?entry.date:selector.includes('-description')?entry.description:String(entry.amount)})}; }
+for(const [group,level] of [['High School','High School'],['College / Graduate','College'],['College / Graduate','Graduate School'],['Elementary','Elementary'],['Non-Teaching','Non-Teaching']]) {
+  context.currentCalcTab=group;employee.schoolLevel=level;
+  employee.classification=group==='Non-Teaching'?'Non-Teaching':'Teaching';
+  if(group==='Elementary'||group==='Non-Teaching') {
+    elements.calcSalary.value='26080';elements.calcAtt.value='1';elements.calcWorkDays.value='26.08';
+  }
+  elements.calcAbsenceRows.children=[];vm.runInContext('computePayroll()',context);
+  const before=JSON.parse(JSON.stringify(context.lastCalc));
+  elements.calcAbsenceRows.children=[absenceRow(absence)];vm.runInContext('computePayroll()',context);
+  assert.equal(context.lastCalc.gross,before.gross);assert.equal(context.lastCalc.net,before.net);
+  if(group==='Elementary'||group==='Non-Teaching') assert.equal(context.lastCalc.gross,25080,'Days still deduct salary exactly once; reference amount does not deduct again');
+  assert.equal(context.lastCalc.absenceRecords[0].amount,250.55);
+  assert.match(elements.calcEarnings.innerHTML,/Missed morning class/);
+  assert.match(elements.calcEarnings.innerHTML,/no additional deduction/);
+}
+for(const change of [{date:'2026-02-30'},{amount:-1},{amount:1.123},{description:''}]) {
+  elements.calcAbsenceRows.children=[absenceRow({...absence,...change})];vm.runInContext('computePayroll()',context);
+  assert.equal(context.lastCalc,null,'Invalid absence entry must block saving');
+}
+elements.calcAbsenceRows.children=[];context.currentCalcTab='High School';employee.schoolLevel='High School';employee.classification='Teaching';
+saved.absenceRecords=[absence];
+
 assert.equal(saved.subjectBreakdown[0].totalHours,5);
 assert.equal(saved.subjectBreakdown[0].hoursPerWorkload,3);
 assert.equal(saved.subjectBreakdown[0].qty,5/3);
@@ -107,6 +132,10 @@ assert.doesNotMatch(generated.match(/<input[^>]*class="fi calc-qty"[^>]*>/)[0],/
   const {mergeState}=require('../server/state-access');
   const merged=await mergeState(state,{payrollRecords:[saved]},state.auth[2]);
   assert.equal(merged.payrollRecords[0].subjectBreakdown[0].totalHours,5);
+  assert.deepEqual(merged.payrollRecords[0].absenceRecords,[absence]);
+  for(const change of [{date:'2026-02-30'},{amount:-1},{amount:1.123},{description:''}]) {
+    await assert.rejects(mergeState(state,{payrollRecords:[{...saved,absenceRecords:[{...absence,...change}]}]},state.auth[2]),/Invalid absence reference record/);
+  }
   assert.equal(merged.payrollRecords[0].subjectBreakdown[0].qty,5/3);
   const invalid=structuredClone(saved);invalid.subjectBreakdown[0].qty=5;
   await assert.rejects(mergeState(state,{payrollRecords:[invalid]},state.auth[2]),/hours and workload amounts/);

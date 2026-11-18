@@ -162,7 +162,7 @@ function tlDaysChanged(cb) {
 // ── Core computation (shared by preview + save) ──────────────
 // Returns { pay, formulaText, hint, workloadType, workloadValue, absences }
 function tlCompute(emp, totalHours, absences) {
-  const WD = (typeof WORK_DAYS !== 'undefined' && WORK_DAYS) ? WORK_DAYS : 22;
+  const WD = (typeof WORK_DAYS !== 'undefined' && WORK_DAYS) ? WORK_DAYS : 26.08;
   const HPW = (typeof HOURS_PER_WORKLOAD !== 'undefined' && HOURS_PER_WORKLOAD) ? HOURS_PER_WORKLOAD : 3;
   const weeks = WD / 5;
   const level = tlLevelOf(emp);

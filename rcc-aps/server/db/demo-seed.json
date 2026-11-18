@@ -486,7 +486,7 @@
     }
   ],
   "bonusExemptionLimit": 90000,
-  "workDays": 22,
+  "workDays": 26.08,
   "leaveTypes": [
     {
       "id": 1,

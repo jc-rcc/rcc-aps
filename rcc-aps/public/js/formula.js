@@ -9,7 +9,7 @@ function renderFormulaManagement() {
   const host = document.getElementById('finFormulaContent');
   if (!host) return;
 
-  const WD = (typeof WORK_DAYS !== 'undefined' && WORK_DAYS) ? WORK_DAYS : 22;
+  const WD = (typeof WORK_DAYS !== 'undefined' && WORK_DAYS) ? WORK_DAYS : 26.08;
   const HPW = (typeof HOURS_PER_WORKLOAD !== 'undefined' && HOURS_PER_WORKLOAD) ? HOURS_PER_WORKLOAD : 3;
 
   const card = (icon, title, unit, formula, sample, extra) =>
@@ -36,7 +36,7 @@ function renderFormulaManagement() {
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 20px">' +
           '<div class="fg">' +
             '<label class="fl">Work Days per Month (absence divisor)</label>' +
-            '<input class="fi" id="fmWorkDays" type="number" min="1" max="31" step="1" value="' + WD + '"/>' +
+            '<input class="fi" id="fmWorkDays" type="number" min="1" max="31" step="0.01" value="' + WD + '"/>' +
             '<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px">Used as: Absences ÷ ' + WD + ' × base pay</div>' +
           '</div>' +
           '<div class="fg">' +
@@ -88,7 +88,7 @@ async function saveFormulaParams() {
   const hpw = Math.round(Number(hpwEl ? hpwEl.value : 0) * 100) / 100;
   if (!wd || wd < 1 || wd > 31) {
     showToast('⚠️', 'Work Days must be between 1 and 31.');
-    if (wdEl) wdEl.value = (typeof WORK_DAYS !== 'undefined') ? WORK_DAYS : 22;
+    if (wdEl) wdEl.value = (typeof WORK_DAYS !== 'undefined') ? WORK_DAYS : 26.08;
     return;
   }
   if (!hpw || hpw < 1 || hpw > 40) {

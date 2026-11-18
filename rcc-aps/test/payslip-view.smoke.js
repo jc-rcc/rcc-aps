@@ -7,6 +7,7 @@ for (const [role,docId,detailId] of [['Employee','psDoc','payslipDetailPage'],['
   for (const [level,month,thirteenth] of [['College',10,0],['High School',12,15000],['Elementary',12,15000],['Non-Teaching',10,0]]) {
     const elements = Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>[m[1],{innerHTML:'',style:{}}]));
     const record = {empId:3,month,year:2026,gross:25000,net:23000,date:'Oct 20, 2026',thirteenth,deMinimisSum:500,subjectBreakdown:[{type:'subject',subject:'Data Structures',deptCode:'CCS',qty:39,rate:190,amount:7410},{type:'increment',qty:1,rate:100,amount:100}]};
+    record.absenceRecords = [{date:'2026-11-19',description:'Missed morning class',amount:250.55}];
     record.customDeds = [{name:'PERAA',amount:400},{name:'School Loan',amount:100}];
     const alerts = [];
     const context = vm.createContext({
@@ -19,6 +20,11 @@ for (const [role,docId,detailId] of [['Employee','psDoc','payslipDetailPage'],['
     vm.runInContext(fn,context);
     vm.runInContext(`viewPayslipDetail('${months[month-1]} 2026',3)`,context);
     assert.match(elements[docId].innerHTML,/Paolo Test/);
+    assert.match(elements[docId].innerHTML,/Missed morning class/);
+    assert.match(elements[docId].innerHTML,/2026-11-19/);
+    assert.match(elements[docId].innerHTML,/P250.55/);
+    assert.match(elements[docId].innerHTML,/no additional deduction/);
+    assert.match(elements[docId].innerHTML,/class="ps-net">P23000.00/);
     assert.match(elements[docId].innerHTML,/Data Structures/);
     assert.match(elements[docId].innerHTML,/<th>Dept<\/th>/);
     assert.match(elements[docId].innerHTML,/>CCS<\/td>/);

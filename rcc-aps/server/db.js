@@ -139,6 +139,7 @@ async function assembleState() {
       phil: num(p.phil), pag: num(p.pag), bir: num(p.bir), cash: num(p.cash),
       bonuses: (() => { try { return JSON.parse(p.bonuses || '[]'); } catch (e) { return []; } })(),
       subjectBreakdown: (() => { try { return JSON.parse(p.subjectBreakdown || '[]'); } catch (e) { return []; } })(),
+      absenceRecords: (() => { try { return JSON.parse(p.absenceRecords || '[]'); } catch (e) { return []; } })(),
       customDeds: (() => { try { return JSON.parse(p.customDeds || '[]'); } catch (e) { return []; } })(),
       payNote: p.payNote || '',
       date: p.date || '',
@@ -169,7 +170,7 @@ async function assembleState() {
     })),
     dedMeta: (() => { try { return JSON.parse(cfgObj.dedMeta || '{}'); } catch (e) { return {}; } })(),
     bonusExemptionLimit: parseInt(cfgObj.bonusExemptionLimit, 10) || 90000,
-    workDays: parseFloat(cfgObj.workDays) || 22,
+    workDays: parseFloat(cfgObj.workDays) || 26.08,
     leaveTypes: leaveTypes.map(l => ({ id: l.id, name: l.name, isPaid: !!l.isPaid })),
     nextLeaveTypeId: Math.max(parseInt(cfgObj.nextLeaveTypeId, 10) || 1, ...leaveTypes.map(row => Number(row.id) + 1)),
     leaveRecords: leaveRecords.map(l => ({
@@ -312,15 +313,15 @@ async function persistState(s) {
         `INSERT INTO payroll_records
            (empId, name, month, monthName, year, period, gross, deMinimisSum,
             thirteenth, thirteenTaxable, thirteenExempt, thirteenTax, net,
-            sss, phil, pag, bir, cash, bonuses, subjectBreakdown, customDeds, payNote, date, salaryBase, absenceWorkDays, absenceDays, teachingSemester, teachingSchoolYear)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            sss, phil, pag, bir, cash, bonuses, subjectBreakdown, customDeds, payNote, date, salaryBase, absenceWorkDays, absenceDays, teachingSemester, teachingSchoolYear, absenceRecords)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [p.empId, p.name || '', p.month || 0, p.monthName || '', p.year || 0,
          p.period || '', p.gross || 0, p.deMinimisSum || 0, p.thirteenth || 0,
          p.thirteenTaxable || 0, p.thirteenExempt || 0, p.thirteenTax || 0,
          p.net || 0, p.sss || 0, p.phil || 0, p.pag || 0, p.bir || 0,
          p.cash || 0, JSON.stringify(p.bonuses || []),
          JSON.stringify(p.subjectBreakdown || []), JSON.stringify(p.customDeds || []), p.payNote || '',
-         p.date || '', p.salaryBase ?? null, p.absenceWorkDays ?? null, p.absenceDays ?? null, p.teachingSemester || null, p.teachingSchoolYear || null]
+         p.date || '', p.salaryBase ?? null, p.absenceWorkDays ?? null, p.absenceDays ?? null, p.teachingSemester || null, p.teachingSchoolYear || null, JSON.stringify(p.absenceRecords || [])]
       );
     }
 
@@ -403,7 +404,7 @@ async function persistState(s) {
       nextTeachingLoadClassId: s.nextTeachingLoadClassId || 1,
       hoursPerWorkload: s.hoursPerWorkload || 3,
       bonusExemptionLimit: s.bonusExemptionLimit || 90000,
-      workDays: s.workDays || 22,
+      workDays: s.workDays || 26.08,
       dedMeta: JSON.stringify(s.dedMeta || {}),
       savedAt: s.savedAt || new Date().toISOString()
     };

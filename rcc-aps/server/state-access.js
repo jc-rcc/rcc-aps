@@ -109,7 +109,15 @@ async function mergeState(current, submitted, actor) {
   for (const record of state.payrollRecords || []) {
     if (!Number.isInteger(record.month) || record.month < 1 || record.month > 12 || !Number.isInteger(record.year) || record.year < 1900 || record.year > 9999) throw httpError('Invalid payroll period.');
     for (const key of ['gross','sss','phil','pag','bir','cash','net']) if (!Number.isFinite(Number(record[key] ?? 0))) throw httpError('Invalid payroll amount.');
-    for (const key of ['bonuses','subjectBreakdown','customDeds']) if (record[key] != null && !Array.isArray(record[key])) throw httpError('Invalid payroll breakdown.');
+    for (const key of ['bonuses','subjectBreakdown','customDeds','absenceRecords']) if (record[key] != null && !Array.isArray(record[key])) throw httpError('Invalid payroll breakdown.');
+    if ((record.absenceRecords || []).length > 100) throw httpError('Too many absence records.');
+    for (const entry of record.absenceRecords || []) {
+      if (!entry || typeof entry.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date) ||
+          !Number.isFinite(Date.parse(entry.date)) || new Date(entry.date).toISOString().slice(0,10) !== entry.date ||
+          typeof entry.description !== 'string' || !entry.description.trim() || entry.description.length > 300 ||
+          !Number.isFinite(entry.amount) || entry.amount < 0 || entry.amount > 9999999999.99 ||
+          Math.abs(entry.amount * 100 - Math.round(entry.amount * 100)) > 0.0001) throw httpError('Invalid absence reference record.');
+    }
     for (const entry of record.subjectBreakdown || []) {
       if (!entry || typeof entry !== 'object') throw httpError('Invalid subject breakdown.');
       if (!Object.hasOwn(entry,'totalHours')) continue; // Preserve historical quantity-only records.
