@@ -1475,6 +1475,7 @@ function payslipRecordsFor(userId, year) {
       bir:  rec.bir,
       cash: parseFloat(rec.cash) || 0,
       customDeds: Array.isArray(rec.customDeds) ? rec.customDeds : [],
+      absenceRecords: Array.isArray(rec.absenceRecords) ? rec.absenceRecords : [],
       customTotal: (Array.isArray(rec.customDeds) ? rec.customDeds : []).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0),
       net:  rec.net,
       status: 'Released'

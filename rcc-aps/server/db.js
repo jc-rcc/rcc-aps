@@ -35,6 +35,16 @@ async function q(sql, params) {
   return rows;
 }
 
+// TEXT columns return JSON strings; native JSON columns can already be decoded
+// by mysql2 (including TiDB). Both must survive a fresh database read.
+function readJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) { return []; }
+}
+
 async function status() {
   try {
     const rows = await q('SELECT NOW() AS server_time, DATABASE() AS dbname');
@@ -137,10 +147,10 @@ async function assembleState() {
       thirteenTaxable: num(p.thirteenTaxable), thirteenExempt: num(p.thirteenExempt),
       thirteenTax: num(p.thirteenTax), net: num(p.net), sss: num(p.sss),
       phil: num(p.phil), pag: num(p.pag), bir: num(p.bir), cash: num(p.cash),
-      bonuses: (() => { try { return JSON.parse(p.bonuses || '[]'); } catch (e) { return []; } })(),
-      subjectBreakdown: (() => { try { return JSON.parse(p.subjectBreakdown || '[]'); } catch (e) { return []; } })(),
-      absenceRecords: (() => { try { return JSON.parse(p.absenceRecords || '[]'); } catch (e) { return []; } })(),
-      customDeds: (() => { try { return JSON.parse(p.customDeds || '[]'); } catch (e) { return []; } })(),
+      bonuses: readJsonArray(p.bonuses),
+      subjectBreakdown: readJsonArray(p.subjectBreakdown),
+      absenceRecords: readJsonArray(p.absenceRecords),
+      customDeds: readJsonArray(p.customDeds),
       payNote: p.payNote || '',
       date: p.date || '',
       salaryBase: num(p.salaryBase), absenceWorkDays: num(p.absenceWorkDays), absenceDays: num(p.absenceDays),
